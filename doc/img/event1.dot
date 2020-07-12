@@ -1,0 +1,27 @@
+digraph G {
+        subgraph cluster_0 {
+                style=filled;
+                color=lightgrey;
+                node [style=filled,color=white];
+        	spe_context_create -> spe_image_open -> spe_program_load -> spe_event_handler_create -> spe_event_handler_register -> spe_context_run -> spe_event_wait -> spe_stop_info_read -> spe_event_handler_destroy -> spe_context_destroy
+                label = "ppe program";
+        }
+        subgraph cluster_1 {
+                node [style=filled];
+                hello;
+                label = "spe program";
+                color=black
+        }
+        node  [shape=box,style=filled] event;
+        start -> spe_context_create;
+        spe_context_run  -> hello [tailport = ne  headport = n]; 
+        hello -> spe_context_run [tailport = w headport = se ];
+
+        hello -> event [tailport = s headport = n label="SPE_EVENT_SPE_STOPPED"];
+        spe_event_wait -> event [tailport = e headport = w];
+
+        spe_context_destroy -> end;
+
+        start [shape=Mdiamond];
+        end [shape=Msquare];
+}

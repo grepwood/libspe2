@@ -1,0 +1,138 @@
+How to submit your patches against libspe
+
+
+* Contributing to the project
+
+  In libspe project, only the project maintainers have write access to
+  the repository and other developers are encouraged to contribute
+  their changes to the project via patches posted to a mailing
+  list. This document shows such contributors how to create and post
+  their patches.
+
+
+* Creating patches
+
+  Create your patches by the following rules:
+
+  - Generate patches in the following format:
+
+    - Use "diff -uprN" to generate patches.
+
+    - The patches should be created one directory higher than the root
+      source directory of libspe, i.e. the created patches should be
+      applied by "patch -p1" in the root directory of libspe.
+
+    e.g.)
+
+      SHELL> tar xvfz libspe2-2.1.0.tar.gz
+      SHELL> mv libspe2-2.1.0 libspe2-2.1.0.orig
+      SHELL> diff -uprN libspe2-2.1.0.orig libspe2-2.1.0.mine > my.patch
+
+    NOTE) The recent versions of Quilt generate patches in the
+          required format by default.
+
+    NOTE) Subversion and CVS can generate diffs in the required
+          format as following:
+
+            Subversion: svn diff --diff-cmd diff -x -up libspe2
+            CVS:        cvs diff -upN libspe2
+
+          Some of the options above can be specified in your
+          configuration files as default behaviors. See manuals for
+          details.
+
+  - Generate patches against the latest release or against the latest
+    revision (or one of the recent revisions) in the public
+    repository.
+
+    NOTE) The public repository is available at
+          "http://sourceforge.net/projects/libspe/".
+
+  - Add explanation for your changes to the patches.
+
+  - Sign the patches.
+
+    Put your sign on the patches, if you can certify the below:
+
+        Developer's Certificate of Origin 1.1
+
+        By making a contribution to this project, I certify that:
+
+        (a) The contribution was created in whole or in part by me and I
+            have the right to submit it under the open source license
+            indicated in the file; or
+
+        (b) The contribution is based upon previous work that, to the best
+            of my knowledge, is covered under an appropriate open source
+            license and I have the right under that license to submit that
+            work with modifications, whether created in whole or in part
+            by me, under the same open source license (unless I am
+            permitted to submit under a different license), as indicated
+            in the file; or
+
+        (c) The contribution was provided directly to me by some other
+            person who certified (a), (b) or (c) and I have not modified
+            it.
+
+        (d) I understand and agree that this project and the contribution
+            are public and that a record of the contribution (including all
+            personal information I submit with it, including my sign-off) is
+            maintained indefinitely and may be redistributed consistent with
+            this project or the open source license(s) involved.
+
+    To sign the patches, just put a line at the end of explanation
+    for your patches as following:
+
+      Signed-off-by: Your Name <your@email.address>
+
+
+* Submitting patches
+
+  Submit your patches according to the following rules:
+
+  - Send the patches by e-mail to the "cbe-oss-dev@ozlabs.org" mailing
+    list.
+
+    NOTE) Visit "https://ozlabs.org/mailman/listinfo/cbe-oss-dev" to
+          subscribe to the mailing list.
+
+  - Put subject on the e-mail as following.
+
+    Subject: [PATCH <PART#>/<TOTAL>] libspe2: <SUMMARY>
+
+    "<PART#>/<TOTAL>" can be omitted if you submit just one patch at
+    the same time.
+
+    e.g.)
+
+      Subject: [PATCH] libspe2: Fix foo
+      Subject: [PATCH 1/2] libspe2: Fix bar
+
+
+* Example
+
+-------------------------------------------------------------------
+To: cbe-oss-dev@ozlabs.org
+Subject: [PATCH] libspe2: Fix typo in debug print
+
+This patch fixes typo in debug print.
+
+Signed-off-by: Your Name <your@email.address>
+
+----
+diff -uprN libspe2-2.1.0.orig/spebase/run.c libspe2-2.1.0.mine/spebase/run.c
+--- libspe2-2.1.0.orig/spebase/run.c    2007-03-08 17:42:42.000000000 +0900
++++ libspe2-2.1.0.mine/spebase/run.c    2007-04-04 23:01:03.000000000 +0900
+@@ -265,7 +265,7 @@ int _base_spe_context_run(spe_context_pt
+                        return -1;
+                } else if (ret & 0x08) { /*Test for wait on channel*/
+                        //   0x08   SPU is waiting for a channel.
+-                       DEBUG_PRINTF("0x04   SPU is waiting on channel. %d\n", ret);
++                       DEBUG_PRINTF("0x08   SPU is waiting on channel. %d\n", ret);
+                        stopinfo->stop_reason = SPE_RUNTIME_EXCEPTION;
+                        stopinfo->result.spe_runtime_exception = spu_extended_status;
+                        stopinfo->spu_status = -1;
+-------------------------------------------------------------------
+
+---
+EOF

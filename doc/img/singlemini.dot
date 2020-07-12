@@ -1,0 +1,24 @@
+digraph G {
+        subgraph cluster_0 {
+                style=filled;
+                color=lightgrey;
+                node [style=filled,color=white];
+        	spe_image_open -> spe_context_create -> spe_program_load -> spe_context_run -> spe_context_destroy
+                label = "ppe program";
+        }
+        subgraph cluster_1 {
+                node [style=filled];
+                hello;
+                label = "spe program";
+                color=black
+        }
+;
+        start -> spe_image_open;
+        spe_context_run  -> hello [tailport = ne  headport = n ]; 
+        hello -> spe_context_run [tailport = w headport = se ];
+
+        spe_context_destroy -> end;
+
+        start [shape=Mdiamond];
+        end [shape=Msquare];
+}

@@ -1,0 +1,8 @@
+#!/bin/sh
+if test -f /proc/sys/fs/binfmt_misc/spe
+then
+  echo "elfspe already registered"
+else	
+  echo ':spe:M::\x7fELF\x01\x02\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x17::@BINDIR@/elfspe:' \
+  >/proc/sys/fs/binfmt_misc/register
+fi

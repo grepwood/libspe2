@@ -1,0 +1,24 @@
+spe_create()
+------------
+
+Creates a new SPE context, allocates structures, maps SPE memory areas, and opens needes spufs files.
+
+
+spe_load()
+----------
+
+Loads an SPE-ELF binary opened with spe_open_image() or an embedded SPE object and transfers it to the SPE.
+
+
+spe_exec()
+----------
+
+Starts execution on the SPE. Returns when the SPE has run to an end, or if an unrecoverable error has occurred.
+
+
+spe_open_image() (OLD)
+----------------------
+
+Opens a SPE object file so it can be read, loaded, and transferred to the SPE.
+
+
