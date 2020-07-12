@@ -60,7 +60,7 @@ extern "C"
 spe_context_ptr_t spe_context_create(unsigned int flags, spe_gang_context_ptr_t gang);
 
 /*
- * spe_context_create
+ * spe_context_create_affinity
  */
 spe_context_ptr_t spe_context_create_affinity(unsigned int flags, spe_context_ptr_t affinity_neighbor, spe_gang_context_ptr_t gang);
 

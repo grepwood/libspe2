@@ -28,6 +28,7 @@
 #include <unistd.h>
 
 #include <sys/types.h>
+#include <sys/mman.h>
 
 #include <sys/spu.h>
 
@@ -76,7 +77,7 @@ static int issue_isolated_exit(struct spe_context *spe)
 	struct spe_spu_control_area *cntl_area =
 		spe->base_private->cntl_mmap_base;
 
-	if (!cntl_area) {
+	if (cntl_area == MAP_FAILED) {
 		DEBUG_PRINTF("%s: could not access SPE control area\n",
 				__FUNCTION__);
 		return -1;
@@ -306,7 +307,7 @@ do_run:
 			 * and restart
 			 */
 			if (stopcode == SPE_PROGRAM_ISO_LOAD_COMPLETE) {
-				__spe_context_update_event();
+				_base_spe_program_load_complete(spe);
 				goto do_run;
 			} else {
 				stopinfo->stop_reason = SPE_ISOLATION_ERROR;

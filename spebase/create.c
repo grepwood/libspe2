@@ -48,8 +48,8 @@ static const struct fd_attr spe_fd_attr[NUM_MBOX_FDS] = {
 	[FD_WBOX]	= { .name = "wbox",      .mode = O_WRONLY },
 	[FD_WBOX_NB]	= { .name = "wbox",      .mode = O_WRONLY|O_NONBLOCK },
 	[FD_WBOX_STAT]	= { .name = "wbox_stat", .mode = O_RDONLY },
-	[FD_SIG1]	= { .name = "signal1",   .mode = O_RDWR },
-	[FD_SIG2]	= { .name = "signal2",   .mode = O_RDWR },
+	[FD_SIG1]	= { .name = "signal1",   .mode = O_WRONLY },
+	[FD_SIG2]	= { .name = "signal2",   .mode = O_WRONLY },
 	[FD_MFC]	= { .name = "mfc",       .mode = O_RDWR },
 	[FD_MSS]	= { .name = "mss",       .mode = O_RDWR },
 };
@@ -223,6 +223,7 @@ spe_context_ptr_t _base_spe_context_create(unsigned int flags,
 	priv->cntl_mmap_base = MAP_FAILED;
 	priv->signal1_mmap_base = MAP_FAILED;
 	priv->signal2_mmap_base = MAP_FAILED;
+	priv->loaded_program = NULL;
 
 	for (i = 0; i < NUM_MBOX_FDS; i++) {
 		priv->spe_fds_array[i] = -1;

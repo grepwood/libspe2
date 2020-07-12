@@ -15,7 +15,12 @@ typedef union {
     unsigned int by32[2];
 } addr64;
 
-
+static inline size_t arg64_to_size_t(struct spe_reg128* arg0){
+  addr64 argument0;
+  argument0.by32[0] = arg0->slot[0];
+  argument0.by32[1] = arg0->slot[1];
+  return (size_t)argument0.all64;
+}
 /**
  * default_libea_handler_calloc
  * @ls: base pointer to local store area.
@@ -36,13 +41,20 @@ static int default_libea_handler_calloc(char *ls, unsigned long opdata)
   DECL_RET();
   size_t nmemb;
   size_t size;
-  void* calloc_addr;
+  void* calloc_addr = NULL;
   addr64 ret2;
 
-  nmemb = (size_t) arg0->slot[0];
-  size = (size_t) arg1->slot[0];
+  nmemb = arg64_to_size_t(arg0);
+  size = arg64_to_size_t(arg1);
 
-  calloc_addr = calloc(nmemb, size);
+
+  /* OK, now if we are 32 bit and we were passed 64 bit that really was
+   * bigger than 32 bit we need to bail.
+   */
+  if((arg0->slot[0]== 0 && arg1->slot[0] == 0) || sizeof(nmemb) == 8)
+    calloc_addr = calloc(nmemb, size);
+  else
+    errno = ENOMEM;
 
   ret2.all64 = (unsigned long long) (unsigned long) calloc_addr;
 
@@ -98,12 +110,15 @@ static int default_libea_handler_malloc(char *ls, unsigned long opdata)
   DECL_1_ARGS();
   DECL_RET();
   size_t size;
-  void* malloc_addr;
+  void* malloc_addr = NULL;
   addr64 ret2;
 
-  size = (size_t) arg0->slot[0];
+  size = arg64_to_size_t(arg0);
 
-  malloc_addr = malloc(size);
+  if(arg0->slot[0] == 0 || sizeof(size) == 8)
+    malloc_addr = malloc(size);
+  else
+    errno = ENOMEM;
 
   ret2.all64 = (unsigned long long) (unsigned long) malloc_addr;
 
@@ -138,9 +153,12 @@ static int default_libea_handler_realloc(char *ls, unsigned long opdata)
   ptr.by32[0] = arg0->slot[0];
   ptr.by32[0] = arg0->slot[1];
 
-  size = (size_t) arg1->slot[0];
+  size = arg64_to_size_t(arg1);
 
-  realloc_addr = realloc((void *) ((unsigned long)ptr.all64), size);
+  if(arg1->slot[0] == 0 || sizeof(size) == 8)
+    realloc_addr = realloc((void *) ((unsigned long)ptr.all64), size);
+  else
+    errno = ENOMEM;
 
   ret2.all64 = (unsigned long long) (unsigned long) realloc_addr;
 

@@ -67,11 +67,6 @@
  * The C99 handlers use direct-mapped access to LS in order to fetch parameters
  * from the stack frame, and to place return values (including errno) into the
  * expected locations.
- *
- * Known Errata:
- * 1. The C99 handlers are currently written assuming a 32b PPC-ABI.
- *    A small ammount of work will be necessary to make the vargs
- *       handlers functional in 64b PPC-ABI.
  */
 
 #define SPE_C99_OP_SHIFT    	24
@@ -179,7 +174,6 @@ typedef unsigned long long __va_elem;
     (((unsigned long) (_vargs) + __OFFSET(_type)) & __MASK(_type))
 
 /* Put a value into the va_list pointed to by '_vargs'. 
- * TO-DO: update this to support 64b PPC-ABI, if needed.
  */
 #define __VA_LIST_PUT(_vargs, _type, _a)                		\
 	_vargs = (__va_elem *) __VA_LIST_ALIGN_TO_TYPE(_vargs, _type);	\
@@ -229,7 +223,6 @@ struct __va_temp {
   int *ptr;
 };
 
-/* TO-DO: update these to support 64b PPC-ABI. */
 static int __do_vfprintf(FILE * stream, char *format, __va_elem * vlist)
 {
 #if !defined(__powerpc64__)
@@ -422,6 +415,35 @@ static inline FILE *get_FILE(int nr)
   } while (!done);                      \
 }
 
+#define SKIP_LENGTH_MODIFIERS(p, h, l) {        \
+  int done = 0;                                 \
+  h = 0; l = 0;                                 \
+  do {                                          \
+    switch (*p) {                               \
+    case 'h':                                   \
+      h++;                                      \
+      p++;                                      \
+      break;                                    \
+    case 'l':                                   \
+      l++;                                      \
+      p++;                                      \
+      break;                                    \
+    case 'j':                                   \
+      l = 2;                                    \
+      p++;                                      \
+      break;                                    \
+    case 'z':                                   \
+    case 't':                                   \
+      l = 1;                                    \
+      p++;                                      \
+      break;                                    \
+    default:                                    \
+      done = 1;                                 \
+      break;                                    \
+    }                                           \
+  } while (!done);                              \
+}
+
 #define COUNT_FIELD_WIDTH(p, output) {  \
   switch (*p) {                         \
   case '0':                             \
@@ -470,21 +492,15 @@ static inline FILE *get_FILE(int nr)
   }                                     \
 }
 
-#define SKIP_SCANF_FLAG_CHARS(p, h, l, sp) {    \
+#define SKIP_SCANF_FLAG_CHARS(p, sp) {          \
   int done = 0;                                 \
-  h = 0; l = 0; sp = 0;                         \
+  sp = 0;                                       \
   do {                                          \
     switch (*p) {                               \
-    case 'h':                                   \
-      h = 1;                                    \
-      p++;                                      \
-    case 'l':                                   \
-      l++;                                      \
-      p++;                                      \
-      break;                                    \
     case '*':                                   \
       sp = 1;                                   \
       p++;                                      \
+      break;                                    \
     default:                                    \
       done = 1;                                 \
       break;                                    \
@@ -494,15 +510,14 @@ static inline FILE *get_FILE(int nr)
 
 #define SKIP_CHAR_SET(p)                        \
 {                                               \
-  char _prev;                                   \
-  do {                                          \
-    p = strchr(p, ']');                         \
-    if (p == NULL) {                            \
-      DEBUG_PRINTF("SKIP_CHAR_SET() error.");   \
-      return 1;                                 \
-    }                                           \
-    _prev = *((p)-1);                           \
-  } while ((_prev == '[') || (_prev == '^'));   \
+  p++;                                          \
+  if (*p == '^') p++;                           \
+  if (*p == ']') p++;                           \
+  p = strchr(p, ']');                           \
+  if (p == NULL) {                              \
+    DEBUG_PRINTF("SKIP_CHAR_SET() error.");     \
+    return 1;                                   \
+  }                                             \
 }
 
 static int __nr_format_args(const char *format)
@@ -527,36 +542,63 @@ static int __nr_format_args(const char *format)
 
 static int __parse_printf_format(char *ls, char *format,
 			         struct spe_va_list *spe_vlist,
-			         __va_elem * vlist, int nr_vargs)
+			         __va_elem * vlist, struct __va_temp *vtemps, int nr_vargs)
 {
     int fw, pr;
+    int format_half, format_long;
     int ival;
     double dval;
     long long llval;
     unsigned int ls_offset;
     char *p;
-    char *str;
+    void *ptr;
 
-    if (nr_vargs == 0)
-	return 0;
-
-    for (p = (char *) format; *p; p++) {
+    for (p = format; nr_vargs > 0 && *p; p++) {
 	p = strchr(p, '%');
 	if (!p) {
 	    /* Done with formatting. */
 	    break;
 	}
 	p++;
+	nr_vargs--;
 	SKIP_PRINTF_FLAG_CHARS(p);
 	SKIP_FIELD_WIDTH(p, fw, 1);
 	SKIP_PRECISION(p, pr);
+	SKIP_LENGTH_MODIFIERS(p, format_half, format_long);
 	switch (*p) {
-	case 'c':
 	case 'd':
 	case 'i':
+	case 'o':
+	case 'u':
+	case 'x':
+	case 'X':
+	    if (format_long == 2) {
+		GET_LS_VARG(llval);
+		__VA_LIST_PUT(vlist, long long, llval);
+		break;
+#ifdef __powerpc64__
+	    } else if (format_long) {
+		GET_LS_VARG(ival);
+		switch (*p) {
+		case 'd':
+		case 'i':
+		    __VA_LIST_PUT(vlist, long, (long)ival);
+		    break;
+		default:
+		    __VA_LIST_PUT(vlist, unsigned long,
+				  (unsigned long)(unsigned int)ival);
+		    break;
+		}
+		break;
+#endif /* __powerpc64__*/
+	    }
+	    /* fall through */
+	case 'c':
 	    GET_LS_VARG(ival);
 	    __VA_LIST_PUT(vlist, int, ival);
 	    break;
+	case 'a':
+	case 'A':
 	case 'e':
 	case 'E':
 	case 'f':
@@ -566,63 +608,36 @@ static int __parse_printf_format(char *ls, char *format,
 	    GET_LS_VARG(dval);
 	    __VA_LIST_PUT(vlist, double, dval);
 	    break;
-	case 'h':
-	    GET_LS_VARG(ival);
-	    __VA_LIST_PUT(vlist, int, ival);
-	    if (p[1] == 'h') {
-		p += 2;
-	    } else {
-		p += 1;
-	    }
-	    break;
-	case 'l':
-	    if (p[1] == 'l') {
-		GET_LS_VARG(llval);
-		__VA_LIST_PUT(vlist, long long, llval);
-		p += 2;
-	    } else if (p[1] == 'f' || p[1] == 'F' || p[1] == 'e' || p[1] == 'E' || p[1] == 'g' || p[1] == 'G' ) {
-		GET_LS_VARG(dval);
-		__VA_LIST_PUT(vlist, double, dval);
-		p += 2;
-	    } else {
-		GET_LS_VARG(ival);
-#ifdef __powerpc64__
-               if (p[1] == 'd') {
-                 __VA_LIST_PUT(vlist, long, (long)ival);
-               }
-               else {
-                 __VA_LIST_PUT(vlist, unsigned long,
-                               (unsigned long)(unsigned int)ival);
-               }
-#else /* !__powerpc64__*/
-		__VA_LIST_PUT(vlist, int, ival);
-#endif /* __powerpc64__*/
-		p += 1;
-	    }
-	    break;
 	case 'p':
-#ifdef __powerpc64__
-           GET_LS_VARG(ival);
-           __VA_LIST_PUT(vlist, unsigned long,
-                         (unsigned long)(unsigned int)ival);
-           break;
-#endif /* __powerpc64__ */
-       case 'o':
-	case 'u':
-	case 'x':
-	case 'X':
 	    GET_LS_VARG(ival);
-	    __VA_LIST_PUT(vlist, int, ival);
+	    __VA_LIST_PUT(vlist, unsigned long,
+			  (unsigned long)(unsigned int)ival);
 	    break;
 	case 's':
 	    GET_LS_VARG(ls_offset);
-	    str = GET_LS_PTR(ls_offset);
-	    __VA_LIST_PUT(vlist, char *, str);
+	    ptr = GET_LS_PTR(ls_offset);
+	    __VA_LIST_PUT(vlist, char *, ptr);
+	    break;
+	case 'n':
+	    GET_LS_VARG(ls_offset);
+	    ptr = GET_LS_PTR(ls_offset);
+#ifdef __powerpc64__
+	    if (format_long == 1) {
+		vtemps->ptr = ptr;
+		__VA_LIST_PUT(vlist, long long *, &vtemps->llval);
+		vtemps++;
+		break;
+	    }
+#endif /* __powerpc64__ */
+	    __VA_LIST_PUT(vlist, void *, ptr);
 	    break;
 	default:
 	    break;
 	}
     }
+#ifdef __powerpc64__
+    vtemps->ptr = NULL;
+#endif /* __powerpc64__ */
     return 0;
 }
 
@@ -633,45 +648,30 @@ static int __parse_scanf_format(char *ls, char *format,
     int fw;
     int format_half, format_long, suppress;
     unsigned int ls_offset;
-    char *p, *pstart;
+    char *p;
     void *ptr;
 
-    if (nr_vargs == 0) {
-#ifdef __powerpc64__
-       vtemps->ptr = NULL;
-#endif /* __powerpc64__ */
-	return 0;
-    }
-
-    for (p = (char *) format, pstart = (char *) format; *p;) {
+    for (p = format; nr_vargs > 0 && *p; p++) {
 	p = strchr(p, '%');
 	if (!p) {
 	    /* No more formatting. */
 	    break;
 	}
 	p++;
+	nr_vargs--;
+	SKIP_SCANF_FLAG_CHARS(p, suppress);
 	SKIP_FIELD_WIDTH(p, fw, 0);
-	SKIP_SCANF_FLAG_CHARS(p, format_half, format_long, suppress);
+	SKIP_LENGTH_MODIFIERS(p, format_half, format_long);
 	switch (*p) {
 	case 'd':
 	case 'i':
 	case 'o':
 	case 'u':
 	case 'x':
-	    if (format_half) {
-		if (!suppress) {
-		    GET_LS_VARG(ls_offset);
-		    ptr = GET_LS_PTR(ls_offset);
-		    __VA_LIST_PUT(vlist, short *, ptr);
-		}
-           } else if (format_long == 2) {
-		if (!suppress) {
-		    GET_LS_VARG(ls_offset);
-		    ptr = GET_LS_PTR(ls_offset);
-		    __VA_LIST_PUT(vlist, long long *, ptr);
-		}
+	case 'X':
+	case 'n':
 #ifdef __powerpc64__
-           } else if (format_long) {
+           if (format_long == 1) {
                if (!suppress) {
                    GET_LS_VARG(ls_offset);
                    ptr = GET_LS_PTR(ls_offset);
@@ -679,64 +679,39 @@ static int __parse_scanf_format(char *ls, char *format,
                    __VA_LIST_PUT(vlist, long long *, &vtemps->llval);
                    vtemps++;
                }
+	       break;
+	   }
 #endif /* __powerpc64__ */
-	    } else {
-		if (!suppress) {
-		    GET_LS_VARG(ls_offset);
-		    ptr = GET_LS_PTR(ls_offset);
-		    __VA_LIST_PUT(vlist, int *, ptr);
-		}
-	    }
-	    break;
+	   /* fall through */
+	case 'a':
+	case 'A':
 	case 'e':
+	case 'E':
 	case 'f':
+	case 'F':
 	case 'g':
-	    if (format_long) {
-		if (!suppress) {
-		    GET_LS_VARG(ls_offset);
-		    ptr = GET_LS_PTR(ls_offset);
-		    __VA_LIST_PUT(vlist, double *, ptr);
-		}
-	    } else {
-		if (!suppress) {
-		    GET_LS_VARG(ls_offset);
-		    ptr = GET_LS_PTR(ls_offset);
-		    __VA_LIST_PUT(vlist, float *, ptr);
-		}
-	    }
-	    break;
-	case 'n':
-	    if (!suppress) {
-		GET_LS_VARG(ls_offset);
-		ptr = GET_LS_PTR(ls_offset);
-		__VA_LIST_PUT(vlist, int *, ptr);
-	    }
-	    break;
-	case 'p':
-	    if (!suppress) {
-		GET_LS_VARG(ls_offset);
-		ptr = GET_LS_PTR(ls_offset);
-#ifdef __powerpc64__
-               vtemps->ptr = ptr;
-               __VA_LIST_PUT(vlist, long long *, &vtemps->llval);
-               vtemps++;
-#else /* !__powerpc64__ */
-		__VA_LIST_PUT(vlist, unsigned long *, ptr);
-#endif /* !__powerpc64__ */
-	    }
-	    break;
+	case 'G':
 	case 'c':
-	    if (!suppress) {
-		GET_LS_VARG(ls_offset);
-		ptr = GET_LS_PTR(ls_offset);
-		__VA_LIST_PUT(vlist, char *, ptr);
-	    }
-	    break;
 	case 's':
 	    if (!suppress) {
 		GET_LS_VARG(ls_offset);
 		ptr = GET_LS_PTR(ls_offset);
-		__VA_LIST_PUT(vlist, char *, ptr);
+		__VA_LIST_PUT(vlist, void *, ptr);
+	    }
+	    break;
+	case 'p':
+	    if (!suppress) {
+#ifdef __powerpc64__
+		GET_LS_VARG(ls_offset);
+		ptr = GET_LS_PTR(ls_offset);
+		vtemps->ptr = ptr;
+		__VA_LIST_PUT(vlist, long long *, &vtemps->llval);
+		vtemps++;
+#else /* !__powerpc64__ */
+		GET_LS_VARG(ls_offset);
+		ptr = GET_LS_PTR(ls_offset);
+		__VA_LIST_PUT(vlist, int *, ptr);
+#endif /* !__powerpc64__ */
 	    }
 	    break;
 	case '[':
@@ -1075,6 +1050,7 @@ static int default_c99_handler_vfprintf(char *ls, unsigned long opdata)
     int rc, nr_vargs;
     struct spe_va_list spe_vlist;
     __va_elem *vlist;
+    struct __va_temp *vtemps; /* for %n in 64-bit PPC-ABI */
 
     DEBUG_PRINTF("%s\n", __func__);
     stream = get_FILE(arg0->slot[0]);
@@ -1082,8 +1058,15 @@ static int default_c99_handler_vfprintf(char *ls, unsigned long opdata)
     memcpy(&spe_vlist, arg2, sizeof(struct spe_va_list));
     nr_vargs = __nr_format_args(format);
     vlist = __VA_LIST_ALLOCA(nr_vargs);
-    rc = __parse_printf_format(ls, format, &spe_vlist, vlist, nr_vargs);
-    rc = (rc == 0) ? __do_vfprintf(stream, format, vlist) : -1;
+    vtemps = __VA_TEMP_ALLOCA(nr_vargs);
+    rc = __parse_printf_format(ls, format, &spe_vlist, vlist, vtemps, nr_vargs);
+    if (rc == 0) {
+      rc = __do_vfprintf(stream, format, vlist);
+      __copy_va_temp(vtemps);
+    }
+    else {
+      rc = -1;
+    }
     PUT_LS_RC(rc, 0, 0, errno);
     return 0;
 }
@@ -1147,6 +1130,7 @@ static int default_c99_handler_vprintf(char *ls, unsigned long opdata)
     int rc, nr_vargs;
     struct spe_va_list spe_vlist;
     __va_elem *vlist;
+    struct __va_temp *vtemps; /* for %n in 64-bit PPC-ABI */
 
     DEBUG_PRINTF("%s\n", __func__);
     stream = get_FILE(SPE_STDOUT);
@@ -1154,8 +1138,15 @@ static int default_c99_handler_vprintf(char *ls, unsigned long opdata)
     memcpy(&spe_vlist, arg1, sizeof(struct spe_va_list));
     nr_vargs = __nr_format_args(format);
     vlist = __VA_LIST_ALLOCA(nr_vargs);
-    rc = __parse_printf_format(ls, format, &spe_vlist, vlist, nr_vargs);
-    rc = (rc == 0) ? __do_vfprintf(stream, format, vlist) : -1;
+    vtemps = __VA_TEMP_ALLOCA(nr_vargs);
+    rc = __parse_printf_format(ls, format, &spe_vlist, vlist, vtemps, nr_vargs);
+    if (rc == 0) {
+      rc = __do_vfprintf(stream, format, vlist);
+      __copy_va_temp(vtemps);
+    }
+    else {
+      rc = -1;
+    }
     PUT_LS_RC(rc, 0, 0, errno);
     return 0;
 }
@@ -1220,6 +1211,7 @@ static int default_c99_handler_vsnprintf(char *ls, unsigned long opdata)
     int rc, nr_vargs;
     struct spe_va_list spe_vlist;
     __va_elem *vlist;
+    struct __va_temp *vtemps; /* for %n in 64-bit PPC-ABI */
 
     DEBUG_PRINTF("%s\n", __func__);
     str = GET_LS_PTR(arg0->slot[0]);
@@ -1228,8 +1220,15 @@ static int default_c99_handler_vsnprintf(char *ls, unsigned long opdata)
     memcpy(&spe_vlist, arg3, sizeof(struct spe_va_list));
     nr_vargs = __nr_format_args(format);
     vlist = __VA_LIST_ALLOCA(nr_vargs);
-    rc = __parse_printf_format(ls, format, &spe_vlist, vlist, nr_vargs);
-    rc = (rc == 0) ? __do_vsnprintf(str, size, format, (void *) vlist) : -1;
+    vtemps = __VA_TEMP_ALLOCA(nr_vargs);
+    rc = __parse_printf_format(ls, format, &spe_vlist, vlist, vtemps, nr_vargs);
+    if (rc == 0) {
+      rc = __do_vsnprintf(str, size, format, vlist);
+      __copy_va_temp(vtemps);
+    }
+    else {
+      rc = -1;
+    }
     PUT_LS_RC(rc, 0, 0, errno);
     return 0;
 }
@@ -1253,6 +1252,7 @@ static int default_c99_handler_vsprintf(char *ls, unsigned long opdata)
     int rc, nr_vargs;
     struct spe_va_list spe_vlist;
     __va_elem *vlist;
+    struct __va_temp *vtemps; /* for %n in 64-bit PPC-ABI */
 
     DEBUG_PRINTF("%s\n", __func__);
     str = GET_LS_PTR(arg0->slot[0]);
@@ -1260,8 +1260,15 @@ static int default_c99_handler_vsprintf(char *ls, unsigned long opdata)
     memcpy(&spe_vlist, arg2, sizeof(struct spe_va_list));
     nr_vargs = __nr_format_args(format);
     vlist = __VA_LIST_ALLOCA(nr_vargs);
-    rc = __parse_printf_format(ls, format, &spe_vlist, vlist, nr_vargs);
-    rc = (rc == 0) ? __do_vsprintf(str, format, vlist) : -1;
+    vtemps = __VA_TEMP_ALLOCA(nr_vargs);
+    rc = __parse_printf_format(ls, format, &spe_vlist, vlist, vtemps, nr_vargs);
+    if (rc == 0) {
+      rc = __do_vsprintf(str, format, vlist);
+      __copy_va_temp(vtemps);
+    }
+    else {
+      rc = -1;
+    }
     PUT_LS_RC(rc, 0, 0, errno);
     return 0;
 }
