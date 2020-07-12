@@ -363,6 +363,29 @@ int spe_out_intr_mbox_status (spe_context_ptr_t spe)
 }
 
 /*
+ * Multisource Sync Facility
+ */
+
+int spe_mssync_start(spe_context_ptr_t spe)
+{
+	if (spe == NULL ) {
+		errno = ESRCH;
+		return -1;
+	}
+	return _base_spe_mssync_start(spe);
+}
+
+int spe_mssync_status(spe_context_ptr_t spe)
+{
+	if (spe == NULL ) {
+		errno = ESRCH;
+		return -1;
+	}
+	return _base_spe_mssync_status(spe);
+}
+
+
+/*
  * SPU SIgnal Notification Facility
  */
 
@@ -438,14 +461,6 @@ int spe_callback_handler_deregister (unsigned int callnum)
 void * spe_callback_handler_query(unsigned int callnum) 
 {
 	return _base_spe_callback_handler_query(callnum);
-}
-
-/*
- * spe_callback_handler_update
- */
-int spe_callback_handler_update(void *handler, unsigned int callnum) 
-{
-	return _base_spe_callback_handler_update(handler, callnum);
 }
 
 /*

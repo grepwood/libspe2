@@ -29,7 +29,7 @@
  */ 
 int _base_spe_count_physical_cpus(int cpu_node)
 {
-	char    buff[256] = "/sys/devices/system/cpu";
+	const char    *buff = "/sys/devices/system/cpu";
 	DIR     *dirp;
 	int ret = -2;
 	struct  dirent  *dptr;
@@ -49,7 +49,7 @@ int _base_spe_count_physical_cpus(int cpu_node)
 		errno = EINVAL;
 		return -1;
 	}
-	while(dptr=readdir(dirp)) {
+    while((dptr=readdir(dirp))) {
 		ret++;
 	}
 	closedir(dirp);
@@ -70,7 +70,7 @@ int _base_spe_count_usable_spes(int cpu_node)
  */
 int _base_spe_count_physical_spes(int cpu_node)
 {
-	char	buff[256] = "/sys/devices/system/spu";
+	const char	*buff = "/sys/devices/system/spu";
 	DIR	*dirp;
 	int ret = -2;
 	struct	dirent	*dptr;
@@ -92,7 +92,7 @@ int _base_spe_count_physical_spes(int cpu_node)
 		errno = EINVAL;
 		return -1;
 	}
-	while(dptr=readdir(dirp)) {
+    while((dptr=readdir(dirp))) {
 		ret++;
 	}
 	closedir(dirp);

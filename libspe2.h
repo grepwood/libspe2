@@ -165,6 +165,13 @@ int spe_out_intr_mbox_read (spe_context_ptr_t spe, unsigned int *mbox_data, int 
 int spe_out_intr_mbox_status (spe_context_ptr_t spe);
 
 /*
+ * Multisource Sync Facility
+ */
+int spe_mssync_start(spe_context_ptr_t spe);
+
+int spe_mssync_status(spe_context_ptr_t spe);
+
+/*
  * SPU SIgnal Notification Facility
  */
 int spe_signal_write (spe_context_ptr_t spe, unsigned int signal_reg, unsigned int data);
@@ -198,7 +205,6 @@ int spe_callback_handler_deregister (unsigned int callnum);
  * spe_callback_handler_query
  */
 void * spe_callback_handler_query(unsigned int callnum);
-
 
 /*
  * spe_info_get

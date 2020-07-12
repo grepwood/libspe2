@@ -11,7 +11,7 @@ LDFLAGS := -m32
 LDLIBS := -L$(TOP) -lspe2 -lpthread
 
 MAJOR_VERSION	:= 1
-MINOR_VERSION	:= 2.1
+MINOR_VERSION	:= 2.2
 
 libspe12_A	:= libspe.a
 libspe12_SO	:= libspe.so.${MAJOR_VERSION}.${MINOR_VERSION}
@@ -38,5 +38,5 @@ install: spe.h $(libspe12_SO) $(libspe12_A)
 
 
 clean:
-	rm -f $(libspe12_SONAME) $(libspe12_OBJS) $(libspe12_A) 
+	rm -f $(libspe12_SO) $(libspe12_OBJS) $(libspe12_A) 
 	

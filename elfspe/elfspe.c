@@ -99,7 +99,7 @@ spe_copy_argv(int argc, char **argv, struct spe_regs *ret)
     for (i = 0; i < argc; i++) {
 	nbytes += strlen(argv[i]) + 1;
     }
-    nbytes += (argc * sizeof(unsigned int));
+    nbytes += ((argc + 1) * sizeof(unsigned int));
     nbytes = (nbytes + 15) & ~(15);
     if (nbytes > spe_arg_max) {
 	return 2;
@@ -113,7 +113,7 @@ spe_copy_argv(int argc, char **argv, struct spe_regs *ret)
     ptr = (char *)start;
     end = (char *)start + nbytes;
     argv_offsets = (unsigned int *) ptr;
-    ptr += (argc * sizeof(unsigned int));
+    ptr += ((argc + 1) * sizeof(unsigned int));
     for (i = 0; i < argc; i++) {
 	int len = strlen(argv[i]) + 1;
 	argv_offsets[i] = LS_SIZE - ((unsigned int) (end - ptr));
@@ -121,6 +121,7 @@ spe_copy_argv(int argc, char **argv, struct spe_regs *ret)
 	memcpy(ptr, argv[i], len);
 	ptr += len;
     }
+    argv_offsets[argc] = NULL;
     ret->r3[0] = argc;
     ret->r4[0] = LS_SIZE - nbytes;
     ret->r4[1] = addr64.ui[0];

@@ -26,6 +26,10 @@
 #include "elf_loader.h"
 #include "spebase.h"
 
+#ifndef SPE_EMULATED_LOADER_FILE
+#define SPE_EMULATED_LOADER_FILE "/usr/lib/spe/emulated-loader.bin"
+#endif
+
 /**
  * Send data to a SPU in mbox when space is available.
  *
@@ -57,7 +61,7 @@ static int spe_start_isolated_app(struct spe_context *spe,
 	uint64_t addr;
 	uint32_t size, addr_h, addr_l;
 
-	if (spe_parse_isolated_elf(handle, &addr, &size)) {
+	if (_base_spe_parse_isolated_elf(handle, &addr, &size)) {
 		DEBUG_PRINTF("%s: invalid isolated image\n", __FUNCTION__);
 		errno = ENOEXEC;
 		return -errno;
@@ -86,6 +90,74 @@ static int spe_start_isolated_app(struct spe_context *spe,
 	return 0;
 }
 
+/**
+ * Load the emulated isolation loader program from the filesystem
+ *
+ * @return The loader program, or NULL if it can't be loaded. The loader binary
+ *	   is cached between calls.
+ */
+static spe_program_handle_t *emulated_loader_program(void)
+{
+	static spe_program_handle_t *loader = NULL;
+
+	if (!loader)
+		loader = _base_spe_image_open(SPE_EMULATED_LOADER_FILE);
+
+	if (!loader)
+		DEBUG_PRINTF("Can't load emulated loader '%s': %s\n",
+				SPE_EMULATED_LOADER_FILE, strerror(errno));
+
+	return loader;
+}
+
+/**
+ * Check if the emulated loader is present in the filesystem
+ * @return Non-zero if the loader is available, otherwise zero.
+ */
+int _base_spe_emulated_loader_present(void)
+{
+	spe_program_handle_t *loader = emulated_loader_program();
+
+	if (!loader)
+		return 0;
+
+	return !_base_spe_verify_spe_elf_image(loader);
+}
+
+/**
+ * Initiate transfer of an emulated isolated SPE app by the loader kernel.
+ *
+ * Helper function for internal libspe use.
+ *
+ * @param thread The SPE thread to load the app to
+ * @param handle The handle to the (isolated) spe program
+ * @param ld_info[out] Loader information about the entry point of the SPE.
+ *		This will reference the loader, not the SPE program, as
+ *		we will be running the loader first.
+ * @return zero on success, non-zero on failure;
+ */
+static int spe_start_emulated_isolated_app(struct spe_context *spe,
+		spe_program_handle_t *handle, struct spe_ld_info *ld_info)
+
+{
+	int rc;
+	spe_program_handle_t *loader;
+
+	/* load emulated loader from the filesystem */
+	loader = emulated_loader_program();
+
+	if (!loader)
+		return -1;
+
+	rc = _base_spe_load_spe_elf(loader, spe->base_private->mem_mmap_base, ld_info);
+	if (rc != 0) {
+		DEBUG_PRINTF("%s: No loader available\n", __FUNCTION__);
+		return rc;
+	}
+
+	return spe_start_isolated_app(spe, handle);
+}
+
 int _base_spe_program_load(spe_context_ptr_t spe, spe_program_handle_t *program)
 {
 	int rc = 0, objfd;
@@ -93,9 +165,13 @@ int _base_spe_program_load(spe_context_ptr_t spe, spe_program_handle_t *program)
 
 	if (spe->base_private->flags & SPE_ISOLATE) {
 		rc = spe_start_isolated_app(spe, program);
+
+	} else if (spe->base_private->flags & SPE_ISOLATE_EMULATE) {
+		rc = spe_start_emulated_isolated_app(spe, program, &ld_info);
+
 	} else {
-		rc = load_spe_elf(program, spe->base_private->mem_mmap_base,
-				&ld_info);
+		rc = _base_spe_load_spe_elf(program, spe->base_private->mem_mmap_base,
+					    &ld_info);
 	}
 
 	if (rc != 0) {
@@ -114,7 +190,8 @@ int _base_spe_program_load(spe_context_ptr_t spe, spe_program_handle_t *program)
 	
 	__spe_context_update_event();	
 
-	spe->base_private->entry=ld_info.entry;
-	
+	spe->base_private->entry = ld_info.entry;
+	spe->base_private->emulated_entry = ld_info.entry;
+
 	return 0;
 }

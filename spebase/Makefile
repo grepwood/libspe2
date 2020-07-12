@@ -23,17 +23,20 @@ include $(TOP)/make.defines
 
 MAJOR_VERSION	:= 2
 MINOR_VERSION	:= 0.0
+EMULATED_LOADER := $(libdir)/spe/emulated-loader.bin
 
 libspebase_A	:= libspebase.a
 libspebase_SO	:= libspebase.so.${MAJOR_VERSION}.${MINOR_VERSION}
 libspebase_SONAME	:= libspebase.so.${MAJOR_VERSION}
 
 libspebase_OBJS := create.o  elf_loader.o load.o run.o image.o lib_builtin.o \
-				default_c99_handler.o default_posix1_handler.o dma.o mbox.o \
-				accessors.o info.o
+				default_c99_handler.o default_posix1_handler.o default_libea_handler.o \
+				dma.o mbox.o accessors.o info.o
 
 CFLAGS += -I..
 CFLAGS += -D_ATFILE_SOURCE
+
+load.o: CPPFLAGS+='-DSPE_EMULATED_LOADER_FILE="$(EMULATED_LOADER)"'
 
 all: $(libspebase_SO) $(libspebase_A)
 

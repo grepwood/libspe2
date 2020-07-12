@@ -74,10 +74,10 @@ spe_program_handle_t *_base_spe_image_open(const char *filename)
 		goto ret_err;
 
 	/*Verify that this is a valid SPE ELF object*/
-	if((verify_spe_elf_image((spe_program_handle_t *)ret)))
+	if((_base_spe_verify_spe_elf_image((spe_program_handle_t *)ret)))
 		goto ret_err;
 
-	if (toe_ear(&ret->speh))
+	if (_base_spe_toe_ear(&ret->speh))
 		goto ret_err;
 
 	/* ok */

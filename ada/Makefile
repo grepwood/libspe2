@@ -21,39 +21,30 @@ TOP=..
 
 include $(TOP)/make.defines
 
+adabindings := libspe2 libspe2_types cbea_map\
+		testsingle	
+spu_images := hello
 
-CFLAGS += -I$(TOP)/spebase
-CFLAGS += -I$(TOP)/spethread
-CFLAGS += -I$(TOP)/spegang
-CFLAGS += -I$(TOP)/speevent
-CFLAGS += -I$(TOP) -g
+all: adabinding tests spu_programs
 
-LDFLAGS := $(CFLAGS)
-LDLIBS := -L$(TOP) -lspe2 -lpthread
+adabinding : libspe2.ads libspe2_types.ads cbea_map.ads
+	$(CC) -c cbea_map.ads 
+	$(CC) -c libspe2.ads
+	$(CC) -c libspe2_types.ads
 
-ALL := testsingle testsinglemini hello hellointr\
-		testmap1 \
-		testpthread testpthreadmini \
-		testlibspe2 testlibspe2hello \
-		testinfo testhandler \
-		testevent1 testevent2 \
-		testmbox readmbox
+tests : testsingle.adb 
+	$(CROSS)gnatmake -g $^
 
-all: $(ALL)
+spu_programs:  hello 
 
 hello: helloworld.c
-	$(SPU_CC) $(SPU_CFLAGS) -o hello helloworld.c
+	$(SPU_CC) $(SPU_CFLAGS) $^ -o $@
 
-hellointr: hellointr.c
-	$(SPU_CC) $(SPU_CFLAGS) -o hellointr hellointr.c
 
-readmbox: readmbox.c
-	$(SPU_CC) $(SPU_CFLAGS) -o readmbox readmbox.c
-
-testlibspe2hello: testlibspe2hello.c
-	$(SPU_CC) $(SPU_CFLAGS) -o testlibspe2hello testlibspe2hello.c
-
+install: $(adabinding) 
 
 clean:
-	rm -f $(ALL)
+	rm -f $(adabindings) 
+	rm -f $(spu_images)
+	rm -f *.o *.ali b~*
 

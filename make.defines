@@ -18,10 +18,9 @@
 #*
 
 
-X86 = $(shell if [ "`uname -m | grep  ppc`" == "" ] ; then echo 1 ; fi)
+X86 = $(shell if ! uname -m | grep ppc ; then echo 1 ; fi)
 
-CROSS_COMPILE = $(shell if [ "`cat /proc/cpuinfo | grep Broadband`" == "" ] ; \
-		  then echo 1 ; fi)
+CROSS_COMPILE = $(shell if ! grep Broadband /proc/cpuinfo ; then echo 1 ; fi)
 
 ifeq "$(X86)"  "1"
     CROSS	?= /opt/cell/bin/ppu-
@@ -36,11 +35,14 @@ else
 prefix		?= /usr/local
 endif
 
+SPU_CROSS	 = spu-
+
 exec_prefix	 = ${prefix}
 bindir		 = ${exec_prefix}/bin
 libdir		 = ${exec_prefix}/lib
 includedir	 = ${prefix}/include
 speinclude	 = ${prefix}/spu/include
+adabindingdir   = ${prefix}/adainclude
 
 DESTDIR		:=
 ROOT		:= ${DESTDIR}${SYSROOT}
@@ -52,7 +54,7 @@ INSTALL_LINK	:= ln -sf
 INSTALL_DIR	:= ${INSTALL} -d -m 755
 
 MAJOR_VERSION	:= 2
-MINOR_VERSION	:= 1.0
+MINOR_VERSION	:= 2.0
 
 libspe2_A	:= libspe2.a
 libspe2_SO	:= libspe2.so.${MAJOR_VERSION}.${MINOR_VERSION}
@@ -63,13 +65,16 @@ libspe2_SONAME	:= libspe2.so.${MAJOR_VERSION}
 CC		:= ${CROSS}gcc
 CTAGS		:= ctags
 
-CFLAGS := -O2 -Wall -I. -fPIC -I$(TOP)/include -std=gnu99 \
+CFLAGS := -O2 -Wall -I. -fPIC -I$(TOP)/include -fexceptions -std=gnu99 \
 			-Wformat -Wdisabled-optimization \
 			-Wundef -Wshadow -Wcast-align -Wwrite-strings \
 			-Wmissing-prototypes -Wmissing-declarations \
 			-Wmissing-noreturn -Wredundant-decls \
 			-Wnested-externs -Winline -Wformat \
 			${EXTRA_CFLAGS} ${OPTFLAGS}
+
+SPU_CC		 = $(SPU_CROSS)gcc
+SPU_CFLAGS	 =
 
 #DEBUG=1
 

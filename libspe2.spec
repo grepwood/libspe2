@@ -1,14 +1,28 @@
-%define release 0
+%define release %{_version}
+%define build_all 1
 Name: libspe2
-Version: 2.1.0
+Version: 2.2.0
 Release: %{release}
 License: LGPL
 Group: System Environment/Base
 URL: http://www.bsc.es/projects/deepcomputing/linuxoncell
-Source: http://www.bsc.es/projects/deepcomputing/linuxoncell/development/release2.0/libspe/%{name}-%{version}.tar.gz
+Source: http://www.bsc.es/projects/deepcomputing/linuxoncell/development/release2.0/libspe/%{name}-%{version}-%{release}.tar.gz
 Buildroot: %{_tmppath}/libspe
 Exclusivearch: ppc ppc64 noarch
 Summary: SPE Runtime Management Library
+
+# to build the wrapper, call rpmbuild with --define="with_wrapper 1" 
+%define WITH_WRAPPER  %{?with_wrapper:%with_wrapper}%{!?with_wrapper:0}
+
+%if %{build_all}
+%define build_common 1
+%else
+%ifarch ppc
+%define build_common 1
+%else
+%define build_common 0
+%endif
+%endif
 
 %ifarch noarch
 %define sysroot %{nil}
@@ -18,18 +32,22 @@ Summary: SPE Runtime Management Library
 %define set_optflags OPTFLAGS="%{optflags}"
 %endif
 
+%define sysroot %{nil}
+%define set_optflags OPTFLAGS="%{optflags}"
+
 %ifarch ppc
 %define _libdir /usr/lib
 %endif
 %ifarch ppc64
 %define _libdir /usr/lib64
 %endif
+%define _adabindingdir /usr/adainclude
 %define _includedir2 /usr/spu/include
 
 %define _initdir /etc/init.d
 %define _unpackaged_files_terminate_build 0
 
-%ifarch ppcnone
+%if %{WITH_WRAPPER}
 %package -n libspe
 Summary: SPE Runtime Management Wrapper Library
 Group: Development/Libraries
@@ -41,17 +59,24 @@ Summary: SPE Runtime Management Library
 Group: Development/Libraries
 Requires: %{name} = %{version}
 
-%ifarch ppcnone
+%if %{WITH_WRAPPER}
 %package -n libspe-devel
 Summary: SPE Runtime Management Library
 Group: Development/Libraries
 Requires: %{name} = %{version}
 %endif
 
-%ifarch ppc
+%if %{build_common}
 %package -n elfspe2
 Summary: Helper for standalong SPE applications
 Group: Applications/System
+Requires: %{name} = %{version}
+%endif
+
+%if %{build_common}
+%package adabinding
+Summary : Ada package files porting libspe headers
+Group: Development/Libraries
 Requires: %{name} = %{version}
 %endif
 
@@ -59,7 +84,7 @@ Requires: %{name} = %{version}
 SPE Runtime Management Library for the
 Cell Broadband Engine Architecture.
 
-%ifarch ppcnone
+%if %{WITH_WRAPPER}
 %description -n libspe
 Header and object files for SPE Runtime
 Management Wrapoer Library.
@@ -69,13 +94,19 @@ Management Wrapoer Library.
 Header and object files for SPE Runtime
 Management Library.
 
-%ifarch ppcnone
+%if %{WITH_WRAPPER}
 %description -n libspe-devel
 Header and object files for SPE Runtime
 Management Library.
 %endif
 
-%ifarch ppc
+%if %{build_common}
+%description adabinding
+Ada package files porting libspe headers
+Management Library.
+%endif
+
+%if %{build_common}
 %description -n elfspe2
 This tool acts as a standalone loader for spe binaries.
 %endif
@@ -86,7 +117,7 @@ This tool acts as a standalone loader for spe binaries.
 
 %build
 make SYSROOT=%{sysroot} %{set_optflags} prefix=%{_prefix} libdir=%{_libdir}
-%ifarch ppc
+%if %{build_common}
 make elfspe-all SYSROOT=%{sysroot} %{set_optflags} prefix=%{_prefix} libdir=%{_libdir}
 %endif
 
@@ -94,7 +125,7 @@ make elfspe-all SYSROOT=%{sysroot} %{set_optflags} prefix=%{_prefix} libdir=%{_l
 rm -rf $RPM_BUILD_ROOT%{sysroot}
 
 make install DESTDIR=$RPM_BUILD_ROOT SYSROOT=%{sysroot} prefix=%{_prefix} libdir=%{_libdir} speinclude=%{_includedir2}
-%ifarch ppc
+%if %{build_common}
 make elfspe-install DESTDIR=$RPM_BUILD_ROOT SYSROOT=%{sysroot} prefix=%{_prefix} libdir=%{_libdir} speinclude=%{_includedir2}
 %endif
 
@@ -159,7 +190,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %postun -p /sbin/ldconfig
 
-%ifarch ppc
+%if %{build_common}
 %preun -n elfspe2
 [ -f %{_initdir}/elfspe ] && /sbin/chkconfig --del elfspe
 
@@ -172,7 +203,7 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root)
 %{sysroot}%{_libdir}/*2.so.*
 
-%ifarch ppcnone
+%if %{WITH_WRAPPER}
 %files -n libspe
 %defattr(-,root,root)
 %{sysroot}%{_libdir}/libspe.so.*
@@ -185,8 +216,9 @@ rm -rf $RPM_BUILD_ROOT
 %{sysroot}%{_includedir}/*2*.h
 %{sysroot}%{_includedir}/cbea_map.h
 %{sysroot}%{_includedir2}/*.h
+%{sysroot}%{_libdir}/pkgconfig/libspe2.pc
 
-%ifarch ppcnone
+%if %{WITH_WRAPPER}
 %files -n libspe-devel
 %defattr(-,root,root)
 %{sysroot}%{_libdir}/libspe.so
@@ -194,13 +226,22 @@ rm -rf $RPM_BUILD_ROOT
 %{sysroot}%{_includedir}/libspe.h
 %endif
 
-%ifarch ppc
+%if %{build_common}
 %files -n elfspe2
 %defattr(-,root,root)
 %{sysroot}%{_bindir}/elfspe-register
 %{sysroot}%{_bindir}/elfspe-unregister
 %{sysroot}%{_bindir}/elfspe
 %{sysroot}/etc/init.d/elfspe
+%endif
+
+%if %{build_common}
+%files adabinding
+%defattr(-,root,root)
+%{sysroot}%{_adabindingdir}/libspe2.ads
+%{sysroot}%{_adabindingdir}/libspe2_types.ads
+%{sysroot}%{_adabindingdir}/cbea_map.ads
+%{sysroot}%{_adabindingdir}/README-libspe2
 %endif
 
 %changelog

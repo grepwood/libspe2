@@ -403,7 +403,7 @@ int spe_group_max (spe_gid_t spe_gid)
 		perror("dirlist");
 		return MAX_THREADS_PER_GROUP;
 	}
-	while(dptr=readdir(dirp))
+    while((dptr=readdir(dirp)))
 	{
 		ret++;
 	}
@@ -881,7 +881,7 @@ spe_get_event(struct spe_event *pevents, int nevents, int timeout)
 			
 			if (pevents[i].events & (SPE_EVENT_MAILBOX))
 			{
-				SPEfds[setupSPEs].fd=open_if_closed(thread->spectx,FD_IBOX, 0);
+				SPEfds[setupSPEs].fd=_base_spe_open_if_closed(thread->spectx,FD_IBOX, 0);
 				SPEfds[setupSPEs].events=POLLIN;
 			
 				phelper[setupSPEs].event=i;
@@ -907,7 +907,7 @@ spe_get_event(struct spe_event *pevents, int nevents, int timeout)
 			}
 			if (pevents[i].events & (SPE_EVENT_TAG_GROUP))
 			{
-				SPEfds[setupSPEs].fd=open_if_closed(thread->spectx,FD_MFC, 0);
+				SPEfds[setupSPEs].fd=_base_spe_open_if_closed(thread->spectx,FD_MFC, 0);
 				SPEfds[setupSPEs].events=POLLIN;
 
 				phelper[setupSPEs].event=i;

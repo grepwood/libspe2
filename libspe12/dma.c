@@ -136,7 +136,7 @@ static int read_tag_status_noblock(speid_t speid)
 	unsigned int ret;
 	
 	int mfcfd;
-	mfcfd = open_if_closed(spe->spectx, FD_MFC, 0);
+	mfcfd = _base_spe_open_if_closed(spe->spectx, FD_MFC, 0);
 
 	r_read = read(mfcfd,&ret,4);
 
@@ -157,7 +157,7 @@ static int read_tag_status_async(speid_t speid)
 	unsigned int ret;
 	
 	int mfcfd;
-	mfcfd = open_if_closed(spe->spectx, FD_MFC, 0);
+	mfcfd = _base_spe_open_if_closed(spe->spectx, FD_MFC, 0);
 
 	poll_fd.fd = mfcfd;
 	poll_fd.events = POLLIN;

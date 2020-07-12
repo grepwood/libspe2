@@ -1,0 +1,12 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: @name@
+Description: A wrapper library to adapt the JSRE SPU usage model to SPUFS 
+Version: @version@
+Requires: 
+Conflicts: 
+Libs: -L${libdir} -lspe2 -lrt -lpthread
+Cflags: -I${includedir}

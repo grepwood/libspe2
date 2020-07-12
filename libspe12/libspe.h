@@ -238,6 +238,23 @@ extern void *spe_get_ps_area (speid_t speid, enum ps_area);
  */
 extern int __spe_get_context_fd(speid_t speid);
 
+/* FUNCTION:    spe_set_app_data(speid, data)
+ *
+ * The spe_set_app_data function associates application specific data with an
+ * SPE thread. Any association with previously associated data is lost on success.
+ * On failure, any previous association is unchanged.
+ */
+extern int spe_set_app_data(speid_t speid, void* data);
+
+/* FUNCTION:    spe_get_app_data(speid, p_data)
+ *
+ * The spe_get_app_data function returns the application specific data associated
+ * with the specified SPE thread as set by spe_set_app_data. If no application
+ * data has been associated with the specified thread, then the memory pointed to
+ * by p_data is set to NULL.
+ */
+extern int spe_get_app_data(speid_t speid, void** p_data);
+
 #ifdef __cplusplus
 }
 #endif

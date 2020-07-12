@@ -21,20 +21,11 @@
 
 #include <fcntl.h>
 #include <errno.h>
+#include <sys/mman.h>
 
  /*
  * accessor functions for private members 
  */
-
-int _base_spe_stop_reason_get(spe_context_ptr_t spe)
-{
-	return spe->base_private->stop_reason;
-}
-
-int _base_spe_stop_status_get(spe_context_ptr_t spe)
-{
-	return spe->base_private->stop_status;
-}
 
 void* _base_spe_ps_area_get(spe_context_ptr_t spe, enum ps_area area)
 {
@@ -62,7 +53,7 @@ void* _base_spe_ps_area_get(spe_context_ptr_t spe, enum ps_area area)
 			break;
 	}
 
-	if (ptr == (void*)-1) {
+	if (ptr == MAP_FAILED) {
 		errno = EACCES;
 		return NULL;
 	}
@@ -82,12 +73,12 @@ __attribute__ ((noinline)) void  __spe_context_update_event(void)
 
 int __base_spe_event_source_acquire(spe_context_ptr_t spe, enum fd_name fdesc)
 {
-	return open_if_closed(spe, fdesc, 0);
+	return _base_spe_open_if_closed(spe, fdesc, 0);
 }
 
 void __base_spe_event_source_release(struct spe_context *spe, enum fd_name fdesc)
 {
-	close_if_open(spe, fdesc); 
+	_base_spe_close_if_open(spe, fdesc);
 }
 
 int __base_spe_spe_dir_get(spe_context_ptr_t spe)

@@ -25,6 +25,7 @@
 #define MAX_CALLNUM 255
 #define RESERVED    4
 
-extern int handle_library_callback(struct spe_context * spe, int callnum, unsigned int * npc);
+extern int _base_spe_handle_library_callback(struct spe_context *spe, int callnum,
+					     unsigned int npc);
 
 #endif

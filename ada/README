@@ -1,0 +1,26 @@
+Usage of Ada binding package files
+
+There are three Ada binding package files under this directory: 
+cbea_map.ads, libspe2_types.ads and libspe2.ads. The cbea_map.ads and libspe2_types.ads declare data types, data structures and constants used in libspe2 API. The libspe.ads defines all interfaces of libspe functions using Ada pragmas. 
+
+To include the package files in Ada source file:
+	with cbea_map.ads;
+	with libspe_types.ads;
+	with libspe.ads;
+Further more to have full visibility of the data and interfaces:
+	use cbea_map.ads;
+	use libspe_types.ads;
+	use libspe.ads
+
+The Ada binding package files are installed under /usr/adainclude in SDK 3.0.
+You need to set this directory in your source path so that the compiler could find the packages. 
+For instance in your GNAT project file hello.gpr:
+Project hello is
+	 for Source_Dirs use("/usr/adainclude/", ".");
+end hello;
+
+When compiling the Ada source program, add a GNAT option -Phello.gpr.
+e.g.
+ppu-gnatmake helloworld.adb -Phello.gpr 
+
+The libspe2.ads file is linked with libspe dynamic library automatically through Linker_Options pragma. 

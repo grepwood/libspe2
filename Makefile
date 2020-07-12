@@ -26,10 +26,25 @@ libspe2_OBJS := libspe2.o
 CFLAGS += -I$(TOP)/spebase
 CFLAGS += -I$(TOP)/speevent
 
+PACKAGE		:= libspe2
+VERSION		:= $(MAJOR_VERSION).$(MINOR_VERSION)
+RELEASE		:= $(shell svnversion)
+FULLNAME	:= $(PACKAGE)-$(VERSION)
+PACKAGE_VER	:= $(FULLNAME)-$(RELEASE)
+TARBALL		:= $(SOURCES)$(PACKAGE_VER).tar.gz
+SOURCEFILES	:= $(TARBALL)
+
+edit = @sed \
+	-e 's,@prefix@,$(prefix),g' \
+	-e 's,@exec_prefix@,$(exec_prefix),g' \
+	-e 's,@libdir@,$(libdir),g' \
+	-e 's,@name@,$(PACKAGE),g' \
+	-e 's,@includedir@,$(includedir),g' \
+	-e 's,@version@,$(VERSION),g'
 
 all:  $(libspe2_SO) $(libspe2_A) libspe12-all
 
-dist:  pushall all
+dist:  $(TARBALL)
 
 pushall:
 	quilt push -a ; true
@@ -52,9 +67,11 @@ libspe12-all:
 
 install: libspe12-install
 	$(INSTALL_DIR)     $(ROOT)$(libdir)
+	$(INSTALL_DIR) 	   $(ROOT)$(libdir)/pkgconfig
 	$(INSTALL_DATA)	   $(libspe2_A)			$(ROOT)$(libdir)/$(libspe2_A)
 	$(INSTALL_PROGRAM) $(libspe2_SO)		$(ROOT)$(libdir)/$(libspe2_SO)
 	$(INSTALL_LINK)	   $(libspe2_SO)		$(ROOT)$(libdir)/$(libspe2_SONAME)
+	$(INSTALL_DATA)    libspe2.pc           $(ROOT)$(libdir)/pkgconfig
 	$(INSTALL_LINK)	   $(libspe2_SONAME)	$(ROOT)$(libdir)/libspe2.so
 	$(INSTALL_DIR)     $(ROOT)$(includedir)
 	$(INSTALL_DATA)    libspe2.h            $(ROOT)$(includedir)/libspe2.h
@@ -63,6 +80,11 @@ install: libspe12-install
 	$(INSTALL_DATA)	   spebase/cbea_map.h	$(ROOT)$(includedir)/cbea_map.h
 	$(INSTALL_DIR)     $(ROOT)$(speinclude)
 	$(INSTALL_DATA)	   spebase/cbea_map.h   $(ROOT)$(speinclude)/cbea_map.h
+	$(INSTALL_DIR)     $(ROOT)$(adabindingdir)
+	$(INSTALL_DATA)    ada/README $(ROOT)$(adabindingdir)/README-libspe2
+	$(INSTALL_DATA)    ada/cbea_map.ads $(ROOT)$(adabindingdir)/cbea_map.ads
+	$(INSTALL_DATA)    ada/libspe2.ads  $(ROOT)$(adabindingdir)/libspe2.ads
+	$(INSTALL_DATA)    ada/libspe2_types.ads $(ROOT)$(adabindingdir)/libspe2_types.ads
 
 elfspe-install:
 	$(MAKE) -C elfspe install
@@ -73,20 +95,24 @@ libspe12-install:
 tests: tests/Makefile
 	make -C tests
 
+ada : ada/Makefile
+	make -C ada
+
 tags:
 	$(CTAGS) -R .
 
-$(libspe2_SO): $(libspe2_OBJS) base-all  event-all 
+libspe2.pc: Makefile $(TOP)/libspe2.pc.in
+	@rm -f $@ $@.tmp
+	$(edit) $(TOP)/$@.in >$@.tmp
+	@mv $@.tmp $@
+
+$(libspe2_SO): $(libspe2_OBJS) base-all  event-all libspe2.pc 
 	$(CC) $(CFLAGS) -shared -o $@ $(libspe2_OBJS) spebase/*.o speevent/*.o -lrt -lpthread -Wl,--soname=${libspe2_SONAME}
 
 $(libspe2_A): $(libspe2_OBJS) base-all  event-all 
 	 $(CROSS)ar -r $(libspe2_A) $(libspe2_OBJS) spebase/*.o speevent/*.o $(libspe2_OBJS)
 
 
-PACKAGE		= libspe2
-FULLNAME	= $(PACKAGE)-$(MAJOR_VERSION).$(MINOR_VERSION)
-TARBALL		= $(SOURCES)$(FULLNAME).tar.gz
-SOURCEFILES	= $(TARBALL)
 PATCHES		:= `cat series | grep -v ^\#`
 #RPMBUILD	= ppc32 rpmbuild --target=ppc 
 RPMBUILD	= rpmbuild 
@@ -103,22 +129,22 @@ SPEC	 ?= $(PACKAGE).spec
 RPMBUILD ?= rpmbuild
 
 checkenv:
-	@if [ ""x == "$(PACKAGE)"x \
-	  -o ""x == "$(SOURCEFILES)"x \
-	  -o ""x == "$(SPEC)"x ] ; then \
-	  	echo "inconsistant make file" false; fi
+	@if [ ""x = "$(PACKAGE)"x \
+	  -o ""x = "$(SOURCEFILES)"x \
+	  -o ""x = "$(SPEC)"x ] ; then \
+		echo "inconsistant make file" false; fi
 
 $(PWD)/.rpmmacros:
 	mkdir -p $(SOURCES) $(RPMS) $(SRPMS) $(BUILD)
-	echo -e \%_topdir $(RPM)\\n\%_sourcedir $(PWD)\\n\%_tmppath %_topdir/tmp > $@
+	echo -e \%_topdir $(RPM)\\n\%_sourcedir $(PWD)\\n\%_tmppath %_topdir/tmp\\n\%_version $(RELEASE) > $@
 
-rpm: checkenv $(RPM)/$(PACKAGE)-stamp
+rpm: dist checkenv $(RPM)/$(PACKAGE)-stamp
 
 $(RPM)/$(PACKAGE)-stamp: $(PWD)/.rpmmacros $(SOURCEFILES) $(SPEC)
 	HOME=$(PWD) $(RPMBUILD) -ba $(SPEC) $(RPMFLAGS)
 	touch $@
 
-crossrpm: checkenv $(RPM)/$(PACKAGE)-cross-stamp
+crossrpm: dist checkenv $(RPM)/$(PACKAGE)-cross-stamp
 
 $(RPM)/$(PACKAGE)-cross-stamp: $(PWD)/.rpmmacros $(SOURCEFILES) $(SPEC)
 	HOME=$(PWD) $(RPMBUILD) -ba $(SPEC) --target=noarch $(RPMFLAGS)
@@ -134,21 +160,18 @@ rpm32:
 rpm64: 
 	HOME=$(PWD) $(RPMBUILD) --target=ppc64 -ba $(SPEC) $(RPMFLAGS)
 
-
-
-tarball: $(TARBALL)
-
-$(TARBALL): $(SOURCES)
-#	cd patches; cp $(PATCHES) ..
-	rm -f $(FULLNAME)
+$(TARBALL): clean
 	ln -s . $(FULLNAME)
-	tar czf $@ --exclude=$(FULLNAME).tar.gz \
-		--exclude=$(FULLNAME)/$(FULLNAME) \
-		--exclude=$(FULLNAME)/spegang \
-		--exclude=$(FULLNAME)/spethread \
-		--exclude=$(FULLNAME)/tests_hidden \
-		--exclude=$(FULLNAME)/patches \
-		--exclude=CVS $(FULLNAME)/*
+	tar -czhf $@ --exclude=$(PACKAGE_VER).tar.gz \
+			--exclude=$(FULLNAME)/$(FULLNAME) \
+			--exclude=CVS --exclude .pc --exclude '.*.swp' --exclude '*~'  --exclude '.#*' \
+			--exclude=$(FULLNAME)/spegang \
+			--exclude=$(FULLNAME)/spethread \
+			--exclude=$(FULLNAME)/tests_hidden \
+			--exclude=$(FULLNAME)/patches \
+			--exclude=.svn \
+			$(FULLNAME) 
+	rm $(FULLNAME)
 
 doc: text pdf
 
@@ -177,12 +200,16 @@ clean: base-clean event-clean elfspe-clean libspe12-clean
 	rm *.diff ; true
 	rm -rf $(libspe2_A) $(libspe2_SO) $(libspe2_OBJS)
 	rm -f $(TARBALL)
+	rm -f $(FULLNAME)
 	rm -f doc/*.pdf
 	rm -f doc/functions.txt
 	rm -rf xml
 	rm -rf html
 	rm -rf latex
+	rm -f libspe2.pc
 	make -C tests clean
+	make -C ada clean
+
 
 base-clean: 
 	$(MAKE) -C spebase clean

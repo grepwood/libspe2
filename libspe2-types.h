@@ -124,6 +124,7 @@ typedef struct spe_stop_info {
 		int spe_runtime_exception; 
 		int spe_runtime_fatal;
 		int spe_callback_error;
+		int spe_isolation_error;
 		/* Reserved fields */
 		void *__reserved_ptr;
 		unsigned long long __reserved_u64;
@@ -176,6 +177,7 @@ enum ps_area { SPE_MSSYNC_AREA, SPE_MFC_COMMAND_AREA, SPE_CONTROL_AREA, SPE_SIG_
 #define SPE_CFG_SIGNOTIFY2_OR   0x00000020
 #define SPE_MAP_PS				0x00000040
 #define SPE_ISOLATE				0x00000080
+#define SPE_ISOLATE_EMULATE			0x00000100
 #define SPE_EVENTS_ENABLE			0x00001000
 #define SPE_AFFINITY_MEMORY			0x00002000
 
@@ -190,6 +192,7 @@ enum ps_area { SPE_MSSYNC_AREA, SPE_MFC_COMMAND_AREA, SPE_CONTROL_AREA, SPE_SIG_
 #define SPE_RUNTIME_EXCEPTION	4
 #define SPE_RUNTIME_FATAL		5
 #define SPE_CALLBACK_ERROR		6
+#define SPE_ISOLATION_ERROR		7
 
 /**
  * Runtime errors

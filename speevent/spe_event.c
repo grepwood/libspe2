@@ -42,6 +42,9 @@
 #define __SPE_EVENT_CONTEXT_PRIV_SET(spe, evctx) \
   ( (spe)->event_private = (evctx) )
 
+#define __SPE_EVENTS_ENABLED(spe) \
+  ((spe)->base_private->flags & SPE_EVENTS_ENABLE)
+
 
 void _event_spe_context_lock(spe_context_ptr_t spe)
 {
@@ -166,6 +169,10 @@ int _event_spe_event_handler_register(spe_event_handler_ptr_t evhandler, spe_eve
     errno = EINVAL;
     return -1;
   }
+  if (!__SPE_EVENTS_ENABLED(event->spe)) {
+    errno = ENOTSUP;
+    return -1;
+  }
 
   epfd = __SPE_EPOLL_FD_GET(evhandler);
   evctx = __SPE_EVENT_CONTEXT_PRIV_GET(event->spe);
@@ -221,6 +228,12 @@ int _event_spe_event_handler_register(spe_event_handler_ptr_t evhandler, spe_eve
       _event_spe_context_unlock(event->spe);
       return -1;
     }
+
+    if (event->spe->base_private->flags & SPE_MAP_PS) {
+	    _event_spe_context_unlock(event->spe);
+	    errno = ENOTSUP;
+	    return -1;
+    }
     
     ev_buf = &evctx->events[__SPE_EVENT_TAG_GROUP];
     ev_buf->events = SPE_EVENT_TAG_GROUP;
@@ -270,6 +283,10 @@ int _event_spe_event_handler_deregister(spe_event_handler_ptr_t evhandler, spe_e
   }
   if (!event || !event->spe) {
     errno = EINVAL;
+    return -1;
+  }
+  if (!__SPE_EVENTS_ENABLED(event->spe)) {
+    errno = ENOTSUP;
     return -1;
   }
 

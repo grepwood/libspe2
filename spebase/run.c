@@ -22,6 +22,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 #include <syscall.h>
 #include <unistd.h>
@@ -31,370 +32,334 @@
 #include <sys/spu.h>
 
 #include "elf_loader.h"
-#include "run.h"
 #include "lib_builtin.h"
 #include "spebase.h"
 
-int set_regs(struct spe_context *spe, char *regs)
+/*Thread-local variable for use by the debugger*/
+__thread struct spe_context_info {
+	int spe_id;
+	unsigned int npc;
+	unsigned int status;
+	struct spe_context_info *prev;
+}*__spe_current_active_context;
+
+
+static void cleanupspeinfo(struct spe_context_info *ctxinfo)
+{
+	struct spe_context_info *tmp = ctxinfo->prev;
+	__spe_current_active_context = tmp;
+}
+
+static int set_regs(struct spe_context *spe, void *regs)
 {
 	int fd_regs, rc;
 
-	fd_regs=openat(spe->base_private->fd_spe_dir, "regs", O_RDWR);
+	fd_regs = openat(spe->base_private->fd_spe_dir, "regs", O_RDWR);
 	if (fd_regs < 0) {
-		DEBUG_PRINTF ("Could not open SPE regs file.\n");
-		errno=EFAULT;
+		DEBUG_PRINTF("Could not open SPE regs file.\n");
+		errno = EFAULT;
 		return -1;
 	}
 
-	rc = write(fd_regs,regs,2048);
+	rc = write(fd_regs, regs, 2048);
 
 	close(fd_regs);
 
-	if ( rc < 0 ) {
+	if (rc < 0)
 		return -1;
-	}
-	
+
 	return 0;
 }
 
-static void issue_isolated_exit(struct spe_context *spe)
+static int issue_isolated_exit(struct spe_context *spe)
 {
 	struct spe_spu_control_area *cntl_area =
 		spe->base_private->cntl_mmap_base;
 
 	if (!cntl_area) {
-		DEBUG_PRINTF ("%s: could not access SPE control area\n",
+		DEBUG_PRINTF("%s: could not access SPE control area\n",
 				__FUNCTION__);
-		return;
+		return -1;
 	}
 
 	/* 0x2 is an isolated exit request */
 	cntl_area->SPU_RunCntl = 0x2;
+
+	return 0;
 }
 
-int _base_spe_context_run(spe_context_ptr_t spe, unsigned int *entry, 
-					unsigned int runflags, void *argp, void *envp, spe_stop_info_t *stopinfo)
+static inline void freespeinfo()
 {
-	unsigned int regs[128][4];
-	int 		ret;
-	addr64 		argp64, envp64, tid64;
+	/*Clean up the debug variable*/
+	struct spe_context_info *tmp = __spe_current_active_context->prev;
+	__spe_current_active_context = tmp;
+}
 
-	unsigned int spu_extended_status=0;
-	int retval = 0;
-	
-	
-	int run_again = 1;
-	int stopcode = 0;
-	spe_stop_info_t stopinfo_buf;
+int _base_spe_context_run(spe_context_ptr_t spe, unsigned int *entry,
+		unsigned int runflags, void *argp, void *envp,
+		spe_stop_info_t *stopinfo)
+{
+	int retval = 0, run_rc;
+	unsigned int run_status, tmp_entry;
+	spe_stop_info_t	stopinfo_buf;
+	struct spe_context_info this_context_info __attribute__((cleanup(cleanupspeinfo)));
 
-	/* SETUP parameters */
-
-	argp64.ull = (unsigned long long) (unsigned long) argp;
-	envp64.ull = (unsigned long long) (unsigned long) envp;
-	tid64.ull = (unsigned long long) (unsigned long) spe;
-
-	if (!stopinfo) {
+	/* If the caller hasn't set a stopinfo buffer, provide a buffer on the
+	 * stack instead. */
+	if (!stopinfo)
 		stopinfo = &stopinfo_buf;
-	}
-	
-	if (*entry == SPE_DEFAULT_ENTRY){
-		*entry = spe->base_private->entry;
-	}
 
-	if (*entry==spe->base_private->entry){
-		if (!(spe->base_private->flags & SPE_ISOLATE)){
-			/* make sure the register values are 0 */
-			memset(regs, 0, sizeof(regs));
-			if (runflags & SPE_RUN_USER_REGS) {
-				/* When flags & SPE_USER_REGS is set, argp points
-				 * to an array of 3x128b registers to be passed
-			 	 * directly to the SPE program.
-				 */
-				memcpy(regs[3], argp, sizeof(unsigned int) * 12);
-			} else {
-				regs[3][0] = tid64.ui[0];
-				regs[3][1] = tid64.ui[1];
-				regs[3][2] = 0;
-				regs[3][3] = 0;
-				
-				regs[4][0] = argp64.ui[0];
-				regs[4][1] = argp64.ui[1];
-				regs[4][2] = 0;
-				regs[4][3] = 0;
-				
-			 	regs[5][0] = envp64.ui[0];
-				regs[5][1] = envp64.ui[1];
-				regs[5][2] = 0;
-				regs[5][3] = 0;
-			}
-			if (set_regs(spe, (char*) regs)) {
-				return -1;
-			}
-		}
-	}
 
-	while ( run_again ) {
-		run_again = 0;
-	
-		// run SPE context
-		if ( spe->base_private->flags & SPE_EVENTS_ENABLE ) {
-			// spu_run will return error event code in error_info
-			ret = spu_run(spe->base_private->fd_spe_dir, entry, &spu_extended_status);
-		} else {
-		  	// spu_run will generate a signal in case of an error event
-		  	ret = spu_run(spe->base_private->fd_spe_dir, entry, NULL);
-		}
-		
-		DEBUG_PRINTF ("spu_run returned ret=0x%08x, entry=0x%04x, ext_status=0x%04x.\n",
-						 ret, *entry, spu_extended_status);
-		
-		// set up return values and stopinfo according to spu_run exit conditions
-		// Remember this - overwrite if invalid.
-		stopinfo->spu_status = ret;
-		
-		if (ret == -1) { /*Test for common error*/
-			// spu_run returned and error (-1) and has set errno;
-			DEBUG_PRINTF ("spu_run returned error %d, errno=%d\n", ret, errno);
-			// return immediately with stopinfo set correspondingly
-			if ( errno != 0 && (spe->base_private->flags & SPE_EVENTS_ENABLE) ) {
-				// if errno == EIO and SPU events enabled ==> asynchronous error
-				stopinfo->stop_reason = SPE_RUNTIME_EXCEPTION;
-				stopinfo->result.spe_runtime_exception = spu_extended_status;
-				stopinfo->spu_status = -1;
-				errno = EIO;
-			} else {
-				// else other fatal runtime error
-				stopinfo->stop_reason = SPE_RUNTIME_FATAL;
-				stopinfo->result.spe_runtime_fatal = errno;
-				stopinfo->spu_status = -1;
-				errno = EFAULT;
-			}
-			return -1;
-		} 
+	/* In emulated isolated mode, the npc will always return as zero.
+	 * use our private entry point instead */
+	if (spe->base_private->flags & SPE_ISOLATE_EMULATE)
+		tmp_entry = spe->base_private->emulated_entry;
 
-		if ( (spe->base_private->flags & SPE_EVENTS_ENABLE) && ret == 0 && (spu_extended_status & 0xFFF)) {
-			// if upper 16bit of return val set and SPU events enabled ==> asynchronous error
-			stopinfo->stop_reason = SPE_RUNTIME_EXCEPTION;
-			stopinfo->result.spe_runtime_exception = spu_extended_status;
-			stopinfo->spu_status = -1;
-			errno = EIO;
-			return -1;
-		}
+	else if (*entry == SPE_DEFAULT_ENTRY)
+		tmp_entry = spe->base_private->entry;
+	else 
+		tmp_entry = *entry;
 
-		/*   spu_run defines the follwoing return values:
-		 *   0x02   SPU was stopped by stop-and-signal.
-		 *   0x04   SPU was stopped by halt.
-		 *   0x08   SPU is waiting for a channel.
-		 *   0x10   SPU is in single-step mode.
-		 *   0x20   SPU has tried to execute an invalid instruction.
-		 *   0x40   SPU has tried to access an invalid channel. 
-		 */
-		else if (ret & SPE_SPU_STOPPED_BY_STOP) { /*Test for stop&signal*/
-			/* Stop&Signals are broken down into tree groups
-			 * 1. SPE library calls 
-			 * 2. SPE user defined Stop&Signals
-			 * 3. SPE program end
+	/* If we're starting the SPE binary from its original entry point,
+	 * setup the arguments to main() */
+	if (tmp_entry == spe->base_private->entry &&
+			!(spe->base_private->flags &
+				(SPE_ISOLATE | SPE_ISOLATE_EMULATE))) {
+
+		addr64 argp64, envp64, tid64, ls64;
+		unsigned int regs[128][4];
+
+		/* setup parameters */
+		argp64.ull = (uint64_t)(unsigned long)argp;
+		envp64.ull = (uint64_t)(unsigned long)envp;
+		tid64.ull = (uint64_t)(unsigned long)spe;
+
+		/* make sure the register values are 0 */
+		memset(regs, 0, sizeof(regs));
+
+		/* set sensible values for stack_ptr and stack_size */
+		regs[1][0] = (unsigned int) LS_SIZE - 16; 	/* stack_ptr */
+		regs[2][0] = 0; 							/* stack_size ( 0 = default ) */
+
+		if (runflags & SPE_RUN_USER_REGS) {
+			/* When SPE_USER_REGS is set, argp points to an array
+			 * of 3x128b registers to be passed directly to the SPE
+			 * program.
 			 */
-			
-			// SPU stopped by stop&signal; get 14-bit stop code
-			stopcode = ( ret >> 16 ) & 0x3fff;
-			// check if this is a library callback (stopcode has 0x2100 bits set)
-			// and callbacks are allowed (SPE_NO_CALLBACKS - don't run any library call functions)
-			if ((stopcode & 0xff00) == SPE_PROGRAM_LIBRARY_CALL
-					&& !(runflags & SPE_NO_CALLBACKS)) {
-				int rc, callnum;
+			memcpy(regs[3], argp, sizeof(unsigned int) * 12);
+		} else {
+			regs[3][0] = tid64.ui[0];
+			regs[3][1] = tid64.ui[1];
 
-				// execute library callback
-				callnum = stopcode & 0xff;
-				DEBUG_PRINTF ("SPE library call: %d\n",callnum);
-				rc = handle_library_callback(spe, callnum, entry);
-				if (rc) {
-					/* library callback failed;
-					 * set errno and return immediately */
-					DEBUG_PRINTF("SPE library call "
-							"failed: %d\n", rc);
-					stopinfo->stop_reason =
-						SPE_CALLBACK_ERROR;
-					stopinfo->result.spe_callback_error =
-						rc;
-					stopinfo->spu_status = ret;
-					errno = EFAULT;
-					return -1;
-				} else {
-					/* successful library callback -
-					 * restart SPE program */
-					run_again = 1;
-					*entry += 4;
-				}
+			regs[4][0] = argp64.ui[0];
+			regs[4][1] = argp64.ui[1];
 
-			} else if ((stopcode & 0xff00)
-					== SPE_PROGRAM_NORMAL_END) {
-				// this SPE program has ended.
-				// SPE program stopped by exit(X)
-				stopinfo->stop_reason = SPE_EXIT;
-				stopinfo->result.spe_exit_code =
-					stopcode & 0xff;
-				stopinfo->spu_status = ret;
-				errno = 0;
+			regs[5][0] = envp64.ui[0];
+			regs[5][1] = envp64.ui[1];
+		}
+		
+		/* Store the LS base address in R6 */
+		ls64.ull = (uint64_t)(unsigned long)spe->base_private->mem_mmap_base;
+		regs[6][0] = ls64.ui[0];
+		regs[6][1] = ls64.ui[1];
 
-				if (spe->base_private->flags & SPE_ISOLATE) {
-					issue_isolated_exit(spe);
-					run_again = 1;
-				} else {
-					return 0;
-				}
+		if (set_regs(spe, regs))
+			return -1;
+	}
 
-			} else if (spe->base_private->flags & SPE_ISOLATE &&
-					!(ret & 0x80)) {
-				/* we've successfully exited isolated mode */
-				return errno ? -1 : 0;
+	/*Leave a trail of breadcrumbs for the debugger to follow */
+	if (!__spe_current_active_context) {
+		__spe_current_active_context = &this_context_info;
+		if (!__spe_current_active_context)
+			return -1;
+		__spe_current_active_context->prev = NULL;
+	} else {
+		struct spe_context_info *newinfo;
+		newinfo = &this_context_info;
+		if (!newinfo)
+			return -1;
+		newinfo->prev = __spe_current_active_context;
+		__spe_current_active_context = newinfo;
+	}
+	/*remember the ls-addr*/
+	__spe_current_active_context->spe_id = spe->base_private->fd_spe_dir;
 
+do_run:
+	/*Remember the npc value*/
+	__spe_current_active_context->npc = tmp_entry;
+
+	/* run SPE context */
+	run_rc = spu_run(spe->base_private->fd_spe_dir,
+			&tmp_entry, &run_status);
+
+	/*Remember the npc value*/
+	__spe_current_active_context->npc = tmp_entry;
+	__spe_current_active_context->status = run_status;
+
+	DEBUG_PRINTF("spu_run returned run_rc=0x%08x, entry=0x%04x, "
+			"ext_status=0x%04x.\n", run_rc, tmp_entry, run_status);
+
+	/* set up return values and stopinfo according to spu_run exit
+	 * conditions. This is overwritten on error.
+	 */
+	stopinfo->spu_status = run_rc;
+
+	if (spe->base_private->flags & SPE_ISOLATE_EMULATE) {
+		/* save the entry point, and pretend that the npc is zero */
+		spe->base_private->emulated_entry = tmp_entry;
+		*entry = 0;
+	} else {
+		*entry = tmp_entry;
+	}
+
+	/* Return with stopinfo set on syscall error paths */
+	if (run_rc == -1) {
+		DEBUG_PRINTF("spu_run returned error %d, errno=%d\n",
+				run_rc, errno);
+		stopinfo->stop_reason = SPE_RUNTIME_FATAL;
+		stopinfo->result.spe_runtime_fatal = errno;
+		retval = -1;
+
+		/* For isolated contexts, pass EPERM up to the
+		 * caller.
+		 */
+		if (!(spe->base_private->flags & SPE_ISOLATE
+				&& errno == EPERM))
+			errno = EFAULT;
+
+	} else if (run_rc & SPE_SPU_INVALID_INSTR) {
+		DEBUG_PRINTF("SPU has tried to execute an invalid "
+				"instruction. %d\n", run_rc);
+		stopinfo->stop_reason = SPE_RUNTIME_ERROR;
+		stopinfo->result.spe_runtime_error = SPE_SPU_INVALID_INSTR;
+		errno = EFAULT;
+		retval = -1;
+
+	} else if ((spe->base_private->flags & SPE_EVENTS_ENABLE) && run_status) {
+		/* Report asynchronous error if return val are set and
+		 * SPU events are enabled.
+		 */
+		stopinfo->stop_reason = SPE_RUNTIME_EXCEPTION;
+		stopinfo->result.spe_runtime_exception = run_status;
+		stopinfo->spu_status = -1;
+		errno = EIO;
+		retval = -1;
+
+	} else if (run_rc & SPE_SPU_STOPPED_BY_STOP) {
+		/* Stop & signals are broken down into three groups
+		 *  1. SPE library call
+		 *  2. SPE user defined stop & signal
+		 *  3. SPE program end.
+		 *
+		 * These groups are signified by the 14-bit stop code:
+		 */
+		int stopcode = (run_rc >> 16) & 0x3fff;
+
+		/* Check if this is a library callback, and callbacks are
+		 * allowed (ie, running without SPE_NO_CALLBACKS)
+		 */
+		if ((stopcode & 0xff00) == SPE_PROGRAM_LIBRARY_CALL
+				&& !(runflags & SPE_NO_CALLBACKS)) {
+
+			int callback_rc, callback_number = stopcode & 0xff;
+
+			/* execute library callback */
+			DEBUG_PRINTF("SPE library call: %d\n", callback_number);
+			callback_rc = _base_spe_handle_library_callback(spe,
+									callback_number, *entry);
+
+			if (callback_rc) {
+				/* library callback failed; set errno and
+				 * return immediately */
+				DEBUG_PRINTF("SPE library call failed: %d\n",
+						callback_rc);
+				stopinfo->stop_reason = SPE_CALLBACK_ERROR;
+				stopinfo->result.spe_callback_error =
+					callback_rc;
+				errno = EFAULT;
+				retval = -1;
 			} else {
-				/* user defined stop & signal, including
-				 * callbacks when disabled */
-				stopinfo->stop_reason = SPE_STOP_AND_SIGNAL;
-				stopinfo->result.spe_signal_code = stopcode;
-				retval = stopcode;
-				errno = 0;
+				/* successful library callback - restart the SPE
+				 * program at the next instruction */
+				tmp_entry += 4;
+				goto do_run;
 			}
 
-		} else if (ret & SPE_SPU_HALT) { /*Test for halt*/
-			//   0x04   SPU was stopped by halt.
-			DEBUG_PRINTF("0x04   SPU was stopped by halt.%d\n", ret);
-			stopinfo->stop_reason = SPE_RUNTIME_ERROR;
-			stopinfo->result.spe_runtime_error = SPE_SPU_HALT;
-			errno = EFAULT;
-			return -1;
-		} else if (ret & SPE_SPU_WAITING_ON_CHANNEL) { /*Test for wait on channel*/
-			//   0x08   SPU is waiting for a channel.
-			DEBUG_PRINTF("0x04   SPU is waiting on channel. %d\n", ret);
-			stopinfo->stop_reason = SPE_RUNTIME_EXCEPTION;
-			stopinfo->result.spe_runtime_exception = spu_extended_status;
-			stopinfo->spu_status = -1;
-			errno = EIO;
-			return -1;
-		} else if (ret & SPE_SPU_INVALID_INSTR) { /*Test for invalid instr.*/
-		    //   0x20   SPU has tried to execute an invalid instruction.
-		    DEBUG_PRINTF("0x20   SPU has tried to execute an invalid instruction.%d\n", ret);
-		    stopinfo->stop_reason = SPE_RUNTIME_ERROR;
-		    stopinfo->result.spe_runtime_error = SPE_SPU_INVALID_INSTR;
-		    errno = EFAULT;
-			return -1;
-		} else if (ret & SPE_SPU_INVALID_CHANNEL) { /*Test for invalid channel*/
-	    //   0x40   SPU has tried to access an invalid channel.
-			DEBUG_PRINTF("0x40   SPU has tried to access an invalid channel.%d\n", ret);
-			stopinfo->stop_reason = SPE_RUNTIME_ERROR;
-			stopinfo->result.spe_runtime_error = SPE_SPU_INVALID_CHANNEL;
-			errno = EFAULT;
-			return -1;
-		} else { /*ERROR - SPE Stopped without a specific reason*/
-			DEBUG_PRINTF ("spu_run returned invalid data ret=0x%04x\n", ret);
-			stopinfo->stop_reason = SPE_RUNTIME_FATAL;
-			stopinfo->result.spe_runtime_fatal = -1;
-			stopinfo->spu_status = -1;
-			errno = EFAULT;
-			return -1;
+		} else if ((stopcode & 0xff00) == SPE_PROGRAM_NORMAL_END) {
+			/* The SPE program has exited by exit(X) */
+			stopinfo->stop_reason = SPE_EXIT;
+			stopinfo->result.spe_exit_code = stopcode & 0xff;
+
+			if (spe->base_private->flags & SPE_ISOLATE) {
+				/* Issue an isolated exit, and re-run the SPE.
+				 * We should see a return value without the
+				 * 0x80 bit set. */
+				if (!issue_isolated_exit(spe))
+					goto do_run;
+				retval = -1;
+			}
+
+		} else if ((stopcode & 0xfff0) == SPE_PROGRAM_ISOLATED_STOP) {
+
+			/* 0x2206: isolated app has been loaded by loader;
+			 * provide a hook for the debugger to catch this,
+			 * and restart
+			 */
+			if (stopcode == SPE_PROGRAM_ISO_LOAD_COMPLETE) {
+				__spe_context_update_event();
+				goto do_run;
+			} else {
+				stopinfo->stop_reason = SPE_ISOLATION_ERROR;
+				stopinfo->result.spe_isolation_error =
+					stopcode & 0xf;
+			}
+
+		} else if (spe->base_private->flags & SPE_ISOLATE &&
+				!(run_rc & 0x80)) {
+			/* We've successfully exited isolated mode */
+			retval = 0;
+
+		} else {
+			/* User defined stop & signal, including
+			 * callbacks when disabled */
+			stopinfo->stop_reason = SPE_STOP_AND_SIGNAL;
+			stopinfo->result.spe_signal_code = stopcode;
+			retval = stopcode;
 		}
 
-	} /* while (run_again) */
+	} else if (run_rc & SPE_SPU_HALT) {
+		DEBUG_PRINTF("SPU was stopped by halt. %d\n", run_rc);
+		stopinfo->stop_reason = SPE_RUNTIME_ERROR;
+		stopinfo->result.spe_runtime_error = SPE_SPU_HALT;
+		errno = EFAULT;
+		retval = -1;
 
-  return retval;
+	} else if (run_rc & SPE_SPU_WAITING_ON_CHANNEL) {
+		DEBUG_PRINTF("SPU is waiting on channel. %d\n", run_rc);
+		stopinfo->stop_reason = SPE_RUNTIME_EXCEPTION;
+		stopinfo->result.spe_runtime_exception = run_status;
+		stopinfo->spu_status = -1;
+		errno = EIO;
+		retval = -1;
+
+	} else if (run_rc & SPE_SPU_INVALID_CHANNEL) {
+		DEBUG_PRINTF("SPU has tried to access an invalid "
+				"channel. %d\n", run_rc);
+		stopinfo->stop_reason = SPE_RUNTIME_ERROR;
+		stopinfo->result.spe_runtime_error = SPE_SPU_INVALID_CHANNEL;
+		errno = EFAULT;
+		retval = -1;
+
+	} else {
+		DEBUG_PRINTF("spu_run returned invalid data: 0x%04x\n", run_rc);
+		stopinfo->stop_reason = SPE_RUNTIME_FATAL;
+		stopinfo->result.spe_runtime_fatal = -1;
+		stopinfo->spu_status = -1;
+		errno = EFAULT;
+		retval = -1;
+
+	}
+
+	freespeinfo();
+	return retval;
 }
-/*
-  // OK - now we have handled spu_run errors and library callbacks
-  // READY to return from spe_context_run
-  // set up stopinfo and return values
-
-
-  // set up return values and stopinfo according to spu_run exit conditions
-  // (special cases have been handled above inside loop)
-  //   spu_run defines the follwoing return values:
-  //   0x02   SPU was stopped by stop-and-signal.
-  //   0x04   SPU was stopped by halt.
-  //   0x08   SPU is waiting for a channel.
-  //   0x10   SPU is in single-step mode.
-  //   0x20   SPU has tried to execute an invalid instruction.
-  //   0x40   SPU has tried to access an invalid channel.
-
- 
-  switch ( ret & 0xff ) {
-  case 0x02:
-    //   0x02   SPU was stopped by stop-and-signal.
-    DEBUG_PRINTF("0x04   SPU was stopped by stop&signal.%d\n", ret);
-    stopcode = ( ret >> 16 ) & 0x3fff;
-    if ( stopcode & SPE_PROGRAM_NORMAL_END ) {
-      stopinfo->spe_exit_code = stopcode & 0xff;
-      // SPE program stopped by exit(X)
-      if ( stopinfo->spe_exit_code == 0 ) {
-        // SPE exit(0)
-        stopinfo->stop_reason = SPE_EXIT_NORMAL;
-        retval = 0;
-        errno = 0;
-      } else {
-        // SPE non-zero exit value
-        stopinfo->stop_reason = SPE_EXIT_WITH_CODE;
-        retval = -1;
-        errno = ECANCELED;
-      }
-    } else {
-      // SPE program stopped by (user-defined) stop&signal
-      stopinfo->stop_reason = SPE_STOP_AND_SIGNAL;
-      stopinfo->spe_signal = stopcode;
-      retval = stopcode;
-      errno = 0;
-    };
-    break;
-  case 0x04:
-    //   0x04   SPU was stopped by halt.
-    DEBUG_PRINTF("0x04   SPU was stopped by halt.%d\n", ret);
-    stopinfo->stop_reason = SPE_RUNTIME_ERROR;
-    stopinfo->spe_runtime_error = 0x04;
-    retval = -1;
-    errno = EFAULT;
-    break;
-  case 0x08:
-    //   0x08   SPU is waiting for a channel.
-    DEBUG_PRINTF("0x08   SPU is waiting for a channel.%d\n", ret);
-    stopinfo->stop_reason = SPE_RUNTIME_ERROR;
-    stopinfo->spe_runtime_error = 0x08;
-    retval = -1;
-    errno = EFAULT;
-    break;
-  case 0x10:
-    //   0x10   SPU is in single-step mode.
-    DEBUG_PRINTF("0x10   SPU is in single-step mode.%d\n", ret);
-    stopinfo->stop_reason = SPE_RUNTIME_ERROR;
-    stopinfo->spe_runtime_error = 0x10;
-    retval = -1;
-    errno = EFAULT;
-    break;
-  case 0x20:
-    //   0x20   SPU has tried to execute an invalid instruction.
-    DEBUG_PRINTF("0x20   SPU has tried to execute an invalid instruction.%d\n", ret);
-    stopinfo->stop_reason = SPE_RUNTIME_ERROR;
-    stopinfo->spe_runtime_error = 0x20;
-    retval = -1;
-    errno = EFAULT;
-    break;
-  case 0x40:
-    //   0x40   SPU has tried to access an invalid channel.
-    DEBUG_PRINTF("0x40   SPU has tried to access an invalid channel.%d\n", ret);
-    stopinfo->stop_reason = SPE_RUNTIME_ERROR;
-    stopinfo->spe_runtime_error = 0x40;
-    retval = -1;
-    errno = EFAULT;
-    break;
-  default:
-    // unspecified return value from kernel interface
-    DEBUG_PRINTF("spu_run returned unknown return value %d\n", ret);
-    stopinfo->stop_reason = SPE_RUNTIME_ERROR;
-    stopinfo->spe_runtime_error = (ret & 0xff);
-    retval = -1;
-    errno = EFAULT;
-  }
-
-  // done - get outta here...
-  return retval;
-}
-*/
-

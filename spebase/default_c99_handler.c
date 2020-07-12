@@ -81,7 +81,8 @@
 #define SPE_C99_DATA(_v) 	((_v) & SPE_C99_DATA_MASK)
 
 enum { 
-	SPE_C99_CLEARERR=0x01,
+	SPE_C99_UNUSED,
+	SPE_C99_CLEARERR,
 	SPE_C99_FCLOSE,
 	SPE_C99_FEOF,
 	SPE_C99_FERROR,
@@ -153,12 +154,6 @@ static FILE *spe_FILE_ptrs[SPE_FOPEN_MAX] = {
 };
 
 typedef unsigned long long __va_elem;
-
-#define CHECK_C99_OPCODE(_op)                               		\
-    if (SPE_C99_OP(opdata) != SPE_C99_ ## _op) { 			\
-	DEBUG_PRINTF("OPCODE (0x%x) mismatch.\n", SPE_C99_OP(opdata)); 	\
-        return 1;                                       		\
-    }
 
 /* Allocate stack space for vargs array. */
 #define __VA_LIST_ALIGN 16UL
@@ -774,7 +769,7 @@ static int __parse_scanf_format(char *ls, char *format,
  *
  *	int remove(const char *pathname);
  */
-int default_c99_handler_remove(char *ls, unsigned long opdata)
+static int default_c99_handler_remove(char *ls, unsigned long opdata)
 {
     DECL_1_ARGS();
     DECL_RET();
@@ -782,7 +777,6 @@ int default_c99_handler_remove(char *ls, unsigned long opdata)
     int rc;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(REMOVE);
     path = GET_LS_PTR(arg0->slot[0]);
     rc = remove(path);
     PUT_LS_RC(rc, 0, 0, errno);
@@ -799,7 +793,7 @@ int default_c99_handler_remove(char *ls, unsigned long opdata)
  *
  *	int rename(const char *oldname, const char *newname);
  */
-int default_c99_handler_rename(char *ls, unsigned long opdata)
+static int default_c99_handler_rename(char *ls, unsigned long opdata)
 {
     DECL_2_ARGS();
     DECL_RET();
@@ -808,7 +802,6 @@ int default_c99_handler_rename(char *ls, unsigned long opdata)
     int rc;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(RENAME);
     oldname = GET_LS_PTR(arg0->slot[0]);
     newname = GET_LS_PTR(arg1->slot[0]);
     rc = rename(oldname, newname);
@@ -826,14 +819,13 @@ int default_c99_handler_rename(char *ls, unsigned long opdata)
  *
  *	FILE *tmpfile(void);
  */
-int default_c99_handler_tmpfile(char *ls, unsigned long opdata)
+static int default_c99_handler_tmpfile(char *ls, unsigned long opdata)
 {
     DECL_0_ARGS();
     DECL_RET();
     int i;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(TMPFILE);
     if (nr_spe_FILE_ptrs >= SPE_FOPEN_MAX) {
 	PUT_LS_RC(0, 0, 0, EMFILE);
     } else {
@@ -868,13 +860,12 @@ int default_c99_handler_tmpfile(char *ls, unsigned long opdata)
  * For integrity reasons we return failure. We should expose 
  * mkstemp() instead.
  */
-int default_c99_handler_tmpnam(char *ls, unsigned long opdata)
+static int default_c99_handler_tmpnam(char *ls, unsigned long opdata)
 {
     DECL_0_ARGS();
     DECL_RET();
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(TMPNAM);
     PUT_LS_RC(0, 0, 0, 0);
     return 0;
 }
@@ -889,7 +880,7 @@ int default_c99_handler_tmpnam(char *ls, unsigned long opdata)
  *
  *	int fclose(FILE *stream);
  */
-int default_c99_handler_fclose(char *ls, unsigned long opdata)
+static int default_c99_handler_fclose(char *ls, unsigned long opdata)
 {
     DECL_1_ARGS();
     DECL_RET();
@@ -897,7 +888,6 @@ int default_c99_handler_fclose(char *ls, unsigned long opdata)
     int rc;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(FCLOSE);
     stream = get_FILE(arg0->slot[0]);
     pthread_mutex_lock(&spe_c99_file_mutex);
     rc = fclose(stream);
@@ -920,7 +910,7 @@ int default_c99_handler_fclose(char *ls, unsigned long opdata)
  *
  *	int fflush(FILE *stream);
  */
-int default_c99_handler_fflush(char *ls, unsigned long opdata)
+static int default_c99_handler_fflush(char *ls, unsigned long opdata)
 {
     DECL_1_ARGS();
     DECL_RET();
@@ -928,7 +918,6 @@ int default_c99_handler_fflush(char *ls, unsigned long opdata)
     int rc;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(FFLUSH);
     stream = get_FILE(arg0->slot[0]);
     rc = fflush(stream);
     PUT_LS_RC(rc, 0, 0, errno);
@@ -945,7 +934,7 @@ int default_c99_handler_fflush(char *ls, unsigned long opdata)
  *
  *	FILE *fopen(const char *path, const char *mode);
  */
-int default_c99_handler_fopen(char *ls, unsigned long opdata)
+static int default_c99_handler_fopen(char *ls, unsigned long opdata)
 {
     DECL_2_ARGS();
     DECL_RET();
@@ -955,7 +944,6 @@ int default_c99_handler_fopen(char *ls, unsigned long opdata)
     int i, rc = 0, err = EMFILE;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(FOPEN);
     path = GET_LS_PTR(arg0->slot[0]);
     mode = GET_LS_PTR(arg1->slot[0]);
     pthread_mutex_lock(&spe_c99_file_mutex);
@@ -988,7 +976,7 @@ int default_c99_handler_fopen(char *ls, unsigned long opdata)
  *
  *	FILE *freopen(const char *path, const char *mode, FILE *stream);
  */
-int default_c99_handler_freopen(char *ls, unsigned long opdata)
+static int default_c99_handler_freopen(char *ls, unsigned long opdata)
 {
     DECL_3_ARGS();
     DECL_RET();
@@ -997,7 +985,6 @@ int default_c99_handler_freopen(char *ls, unsigned long opdata)
     int i;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(FREOPEN);
     i = arg2->slot[0];
     if ((i <= 0) || (i >= SPE_FOPEN_MAX)) {
 	PUT_LS_RC(1, 0, 0, EBADF);
@@ -1026,14 +1013,13 @@ int default_c99_handler_freopen(char *ls, unsigned long opdata)
  *
  *	void setbuf(FILE *stream, char *buf);
  */
-int default_c99_handler_setbuf(char *ls, unsigned long opdata)
+static int default_c99_handler_setbuf(char *ls, unsigned long opdata)
 {
     DECL_2_ARGS();
     FILE *stream;
     char *buf;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(SETBUF);
     stream = get_FILE(arg0->slot[0]);
     buf = GET_LS_PTR_NULL(arg1->slot[0]);
     setvbuf(stream, buf, buf ? _IOFBF : _IONBF, SPE_STDIO_BUFSIZ);
@@ -1050,7 +1036,7 @@ int default_c99_handler_setbuf(char *ls, unsigned long opdata)
  *
  *	int setvbuf(FILE *stream, char *buf, int mode , size_t size);
  */
-int default_c99_handler_setvbuf(char *ls, unsigned long opdata)
+static int default_c99_handler_setvbuf(char *ls, unsigned long opdata)
 {
     DECL_4_ARGS();
     DECL_RET();
@@ -1061,7 +1047,6 @@ int default_c99_handler_setvbuf(char *ls, unsigned long opdata)
     int rc;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(SETVBUF);
     stream = get_FILE(arg0->slot[0]);
     buf = GET_LS_PTR_NULL(arg1->slot[0]);
     mode = arg2->slot[0];
@@ -1081,7 +1066,7 @@ int default_c99_handler_setvbuf(char *ls, unsigned long opdata)
  *
  *	int vfprintf(FILE *stream, const char *format, va_list ap);
  */
-int default_c99_handler_vfprintf(char *ls, unsigned long opdata)
+static int default_c99_handler_vfprintf(char *ls, unsigned long opdata)
 {
     DECL_3_ARGS();
     DECL_RET();
@@ -1092,7 +1077,6 @@ int default_c99_handler_vfprintf(char *ls, unsigned long opdata)
     __va_elem *vlist;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(VFPRINTF);
     stream = get_FILE(arg0->slot[0]);
     format = GET_LS_PTR(arg1->slot[0]);
     memcpy(&spe_vlist, arg2, sizeof(struct spe_va_list));
@@ -1114,7 +1098,7 @@ int default_c99_handler_vfprintf(char *ls, unsigned long opdata)
  *
  *	int vfscanf(FILE *stream, const char *format, va_list ap);
  */
-int default_c99_handler_vfscanf(char *ls, unsigned long opdata)
+static int default_c99_handler_vfscanf(char *ls, unsigned long opdata)
 {
     DECL_3_ARGS();
     DECL_RET();
@@ -1126,7 +1110,6 @@ int default_c99_handler_vfscanf(char *ls, unsigned long opdata)
     struct __va_temp *vtemps;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(VFSCANF);
     stream = get_FILE(arg0->slot[0]);
     format = GET_LS_PTR(arg1->slot[0]);
     memcpy(&spe_vlist, arg2, sizeof(struct spe_va_list));
@@ -1155,7 +1138,7 @@ int default_c99_handler_vfscanf(char *ls, unsigned long opdata)
  *
  *	int vprintf(const char *format, va_list ap);
  */
-int default_c99_handler_vprintf(char *ls, unsigned long opdata)
+static int default_c99_handler_vprintf(char *ls, unsigned long opdata)
 {
     DECL_2_ARGS();
     DECL_RET();
@@ -1166,7 +1149,6 @@ int default_c99_handler_vprintf(char *ls, unsigned long opdata)
     __va_elem *vlist;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(VPRINTF);
     stream = get_FILE(SPE_STDOUT);
     format = GET_LS_PTR(arg0->slot[0]);
     memcpy(&spe_vlist, arg1, sizeof(struct spe_va_list));
@@ -1188,7 +1170,7 @@ int default_c99_handler_vprintf(char *ls, unsigned long opdata)
  *
  *	int vscanf(const char *format, va_list ap);
  */
-int default_c99_handler_vscanf(char *ls, unsigned long opdata)
+static int default_c99_handler_vscanf(char *ls, unsigned long opdata)
 {
     DECL_2_ARGS();
     DECL_RET();
@@ -1200,7 +1182,6 @@ int default_c99_handler_vscanf(char *ls, unsigned long opdata)
     struct __va_temp *vtemps;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(VSCANF);
     stream = get_FILE(SPE_STDIN);
     format = GET_LS_PTR(arg0->slot[0]);
     memcpy(&spe_vlist, arg1, sizeof(struct spe_va_list));
@@ -1229,7 +1210,7 @@ int default_c99_handler_vscanf(char *ls, unsigned long opdata)
  *
  *	int vsnprintf(char *str, size_t size, const char *format, va_list ap);
  */
-int default_c99_handler_vsnprintf(char *ls, unsigned long opdata)
+static int default_c99_handler_vsnprintf(char *ls, unsigned long opdata)
 {
     DECL_4_ARGS();
     DECL_RET();
@@ -1241,7 +1222,6 @@ int default_c99_handler_vsnprintf(char *ls, unsigned long opdata)
     __va_elem *vlist;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(VSNPRINTF);
     str = GET_LS_PTR(arg0->slot[0]);
     size = arg1->slot[0];
     format = GET_LS_PTR(arg2->slot[0]);
@@ -1264,7 +1244,7 @@ int default_c99_handler_vsnprintf(char *ls, unsigned long opdata)
  *
  *	int vsprintf(char *str, const char *format, va_list ap);
  */
-int default_c99_handler_vsprintf(char *ls, unsigned long opdata)
+static int default_c99_handler_vsprintf(char *ls, unsigned long opdata)
 {
     DECL_3_ARGS();
     DECL_RET();
@@ -1275,7 +1255,6 @@ int default_c99_handler_vsprintf(char *ls, unsigned long opdata)
     __va_elem *vlist;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(VSPRINTF);
     str = GET_LS_PTR(arg0->slot[0]);
     format = GET_LS_PTR(arg1->slot[0]);
     memcpy(&spe_vlist, arg2, sizeof(struct spe_va_list));
@@ -1297,7 +1276,7 @@ int default_c99_handler_vsprintf(char *ls, unsigned long opdata)
  *
  *	int vsscanf(const char *str, const char *format, va_list ap);
  */
-int default_c99_handler_vsscanf(char *ls, unsigned long opdata)
+static int default_c99_handler_vsscanf(char *ls, unsigned long opdata)
 {
     DECL_3_ARGS();
     DECL_RET();
@@ -1309,7 +1288,6 @@ int default_c99_handler_vsscanf(char *ls, unsigned long opdata)
     struct __va_temp *vtemps;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(VSSCANF);
     str = GET_LS_PTR(arg0->slot[0]);
     format = GET_LS_PTR(arg1->slot[0]);
     memcpy(&spe_vlist, arg2, sizeof(struct spe_va_list));
@@ -1338,7 +1316,7 @@ int default_c99_handler_vsscanf(char *ls, unsigned long opdata)
  *
  *	int fgetc(FILE *stream);
  */
-int default_c99_handler_fgetc(char *ls, unsigned long opdata)
+static int default_c99_handler_fgetc(char *ls, unsigned long opdata)
 {
     DECL_1_ARGS();
     DECL_RET();
@@ -1346,7 +1324,6 @@ int default_c99_handler_fgetc(char *ls, unsigned long opdata)
     int rc;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(FGETC);
     stream = get_FILE(arg0->slot[0]);
     rc = fgetc(stream);
     PUT_LS_RC(rc, 0, 0, errno);
@@ -1363,7 +1340,7 @@ int default_c99_handler_fgetc(char *ls, unsigned long opdata)
  *
  *	char *fgets(char *s, int size, FILE *stream);
  */
-int default_c99_handler_fgets(char *ls, unsigned long opdata)
+static int default_c99_handler_fgets(char *ls, unsigned long opdata)
 {
     DECL_3_ARGS();
     DECL_RET();
@@ -1373,7 +1350,6 @@ int default_c99_handler_fgets(char *ls, unsigned long opdata)
     int rc;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(FGETS);
     s = GET_LS_PTR(arg0->slot[0]);
     size = arg1->slot[0];
     stream = get_FILE(arg2->slot[0]);
@@ -1391,7 +1367,7 @@ int default_c99_handler_fgets(char *ls, unsigned long opdata)
  *
  *      int fileno(FILE *stream);
  */
-int default_c99_handler_fileno(char *ls, unsigned long opdata)
+static int default_c99_handler_fileno(char *ls, unsigned long opdata)
 {
     DECL_1_ARGS();
     DECL_RET();
@@ -1399,7 +1375,6 @@ int default_c99_handler_fileno(char *ls, unsigned long opdata)
     int rc;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(FILENO);
     stream = get_FILE(arg0->slot[0]);
     rc = fileno(stream);
     PUT_LS_RC(rc, 0, 0, errno);
@@ -1416,7 +1391,7 @@ int default_c99_handler_fileno(char *ls, unsigned long opdata)
  *
  *	int fputc(int c, FILE *stream);
  */
-int default_c99_handler_fputc(char *ls, unsigned long opdata)
+static int default_c99_handler_fputc(char *ls, unsigned long opdata)
 {
     DECL_2_ARGS();
     DECL_RET();
@@ -1425,7 +1400,6 @@ int default_c99_handler_fputc(char *ls, unsigned long opdata)
     int rc;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(FPUTC);
     c = arg0->slot[0];
     stream = get_FILE(arg1->slot[0]);
     rc = fputc(c, stream);
@@ -1443,7 +1417,7 @@ int default_c99_handler_fputc(char *ls, unsigned long opdata)
  *
  *	int fputs(const char *s, FILE *stream);
  */
-int default_c99_handler_fputs(char *ls, unsigned long opdata)
+static int default_c99_handler_fputs(char *ls, unsigned long opdata)
 {
     DECL_2_ARGS();
     DECL_RET();
@@ -1452,7 +1426,6 @@ int default_c99_handler_fputs(char *ls, unsigned long opdata)
     int rc;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(FPUTS);
     s = GET_LS_PTR(arg0->slot[0]);
     stream = get_FILE(arg1->slot[0]);
     rc = fputs(s, stream);
@@ -1470,7 +1443,7 @@ int default_c99_handler_fputs(char *ls, unsigned long opdata)
  *
  *	int getc(FILE *stream);
  */
-int default_c99_handler_getc(char *ls, unsigned long opdata)
+static int default_c99_handler_getc(char *ls, unsigned long opdata)
 {
     DECL_1_ARGS();
     DECL_RET();
@@ -1478,7 +1451,6 @@ int default_c99_handler_getc(char *ls, unsigned long opdata)
     int rc;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(GETC);
     stream = get_FILE(arg0->slot[0]);
     rc = getc(stream);
     PUT_LS_RC(rc, 0, 0, errno);
@@ -1495,7 +1467,7 @@ int default_c99_handler_getc(char *ls, unsigned long opdata)
  *
  *	int getchar(void);
  */
-int default_c99_handler_getchar(char *ls, unsigned long opdata)
+static int default_c99_handler_getchar(char *ls, unsigned long opdata)
 {
     DECL_0_ARGS();
     DECL_RET();
@@ -1503,7 +1475,6 @@ int default_c99_handler_getchar(char *ls, unsigned long opdata)
     int rc;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(GETCHAR);
     stream = get_FILE(SPE_STDIN);
     rc = getc(stream);
     PUT_LS_RC(rc, 0, 0, errno);
@@ -1524,7 +1495,7 @@ int default_c99_handler_getchar(char *ls, unsigned long opdata)
  * hole, since its impossible to tell how many characters will
  * be input.
  */
-int default_c99_handler_gets(char *ls, unsigned long opdata)
+static int default_c99_handler_gets(char *ls, unsigned long opdata)
 {
     DECL_1_ARGS();
     DECL_RET();
@@ -1534,7 +1505,6 @@ int default_c99_handler_gets(char *ls, unsigned long opdata)
     int size;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(GETS);
     stream = get_FILE(SPE_STDIN);
     s = GET_LS_PTR(arg0->slot[0]);
     size = LS_SIZE - arg0->slot[0];
@@ -1558,7 +1528,7 @@ int default_c99_handler_gets(char *ls, unsigned long opdata)
  *
  *	int putc(int c, FILE *stream);
  */
-int default_c99_handler_putc(char *ls, unsigned long opdata)
+static int default_c99_handler_putc(char *ls, unsigned long opdata)
 {
     DECL_2_ARGS();
     DECL_RET();
@@ -1566,7 +1536,6 @@ int default_c99_handler_putc(char *ls, unsigned long opdata)
     int rc;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(PUTC);
     f = get_FILE(arg1->slot[0]);
     rc = putc(arg0->slot[0], f);
     PUT_LS_RC(rc, 0, 0, errno);
@@ -1583,7 +1552,7 @@ int default_c99_handler_putc(char *ls, unsigned long opdata)
  *
  *	int putchar(int c);
  */
-int default_c99_handler_putchar(char *ls, unsigned long opdata)
+static int default_c99_handler_putchar(char *ls, unsigned long opdata)
 {
     DECL_1_ARGS();
     DECL_RET();
@@ -1591,7 +1560,6 @@ int default_c99_handler_putchar(char *ls, unsigned long opdata)
     int rc;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(PUTCHAR);
     stream = get_FILE(SPE_STDOUT);
     rc = putc(arg0->slot[0], stream);
     PUT_LS_RC(rc, 0, 0, errno);
@@ -1608,7 +1576,7 @@ int default_c99_handler_putchar(char *ls, unsigned long opdata)
  *
  *	 int puts(const char *s);
  */
-int default_c99_handler_puts(char *ls, unsigned long opdata)
+static int default_c99_handler_puts(char *ls, unsigned long opdata)
 {
     DECL_1_ARGS();
     DECL_RET();
@@ -1616,7 +1584,6 @@ int default_c99_handler_puts(char *ls, unsigned long opdata)
     int rc;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(PUTS);
     s = GET_LS_PTR(arg0->slot[0]);
     rc = puts(s);
     PUT_LS_RC(rc, 0, 0, errno);
@@ -1633,7 +1600,7 @@ int default_c99_handler_puts(char *ls, unsigned long opdata)
  *
  * 	int ungetc(int c, FILE *stream);
  */
-int default_c99_handler_ungetc(char *ls, unsigned long opdata)
+static int default_c99_handler_ungetc(char *ls, unsigned long opdata)
 {
     DECL_2_ARGS();
     DECL_RET();
@@ -1641,7 +1608,6 @@ int default_c99_handler_ungetc(char *ls, unsigned long opdata)
     int rc, c;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(UNGETC);
     c = arg0->slot[0];
     stream = get_FILE(arg1->slot[0]);
     rc = ungetc(c, stream);
@@ -1659,7 +1625,7 @@ int default_c99_handler_ungetc(char *ls, unsigned long opdata)
  *
  *	size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
  */
-int default_c99_handler_fread(char *ls, unsigned long opdata)
+static int default_c99_handler_fread(char *ls, unsigned long opdata)
 {
     DECL_4_ARGS();
     DECL_RET();
@@ -1669,7 +1635,6 @@ int default_c99_handler_fread(char *ls, unsigned long opdata)
     int rc = 0;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(FREAD);
     ptr = GET_LS_PTR(arg0->slot[0]);
     size = arg1->slot[0];
     nmemb = arg2->slot[0];
@@ -1689,7 +1654,7 @@ int default_c99_handler_fread(char *ls, unsigned long opdata)
  *
  *	size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
  */
-int default_c99_handler_fwrite(char *ls, unsigned long opdata)
+static int default_c99_handler_fwrite(char *ls, unsigned long opdata)
 {
     DECL_4_ARGS();
     DECL_RET();
@@ -1699,7 +1664,6 @@ int default_c99_handler_fwrite(char *ls, unsigned long opdata)
     int rc;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(FWRITE);
     ptr = GET_LS_PTR(arg0->slot[0]);
     size = arg1->slot[0];
     nmemb = arg2->slot[0];
@@ -1719,7 +1683,7 @@ int default_c99_handler_fwrite(char *ls, unsigned long opdata)
  *
  *	int fgetpos(FILE *stream, fpos_t *pos);
  */
-int default_c99_handler_fgetpos(char *ls, unsigned long opdata)
+static int default_c99_handler_fgetpos(char *ls, unsigned long opdata)
 {
     DECL_2_ARGS();
     DECL_RET();
@@ -1728,7 +1692,6 @@ int default_c99_handler_fgetpos(char *ls, unsigned long opdata)
     int rc;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(FGETPOS);
     stream = get_FILE(arg0->slot[0]);
     pos = (fpos_t *) GET_LS_PTR(arg1->slot[0]);
     rc = fgetpos(stream, pos);
@@ -1746,7 +1709,7 @@ int default_c99_handler_fgetpos(char *ls, unsigned long opdata)
  *
  *	int fseek(FILE *stream, long offset, int whence);
  */
-int default_c99_handler_fseek(char *ls, unsigned long opdata)
+static int default_c99_handler_fseek(char *ls, unsigned long opdata)
 {
     DECL_3_ARGS();
     DECL_RET();
@@ -1756,7 +1719,6 @@ int default_c99_handler_fseek(char *ls, unsigned long opdata)
     int rc;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(FSEEK);
     stream = get_FILE(arg0->slot[0]);
     offset = (long) arg1->slot[0];
     whence = arg2->slot[0];
@@ -1775,7 +1737,7 @@ int default_c99_handler_fseek(char *ls, unsigned long opdata)
  *
  *	int fsetpos(FILE *stream, fpos_t *pos);
  */
-int default_c99_handler_fsetpos(char *ls, unsigned long opdata)
+static int default_c99_handler_fsetpos(char *ls, unsigned long opdata)
 {
     DECL_2_ARGS();
     DECL_RET();
@@ -1784,7 +1746,6 @@ int default_c99_handler_fsetpos(char *ls, unsigned long opdata)
     int rc;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(FSETPOS);
     stream = get_FILE(arg0->slot[0]);
     pos = (fpos_t *) GET_LS_PTR(arg1->slot[0]);
     rc = fsetpos(stream, pos);
@@ -1802,7 +1763,7 @@ int default_c99_handler_fsetpos(char *ls, unsigned long opdata)
  *
  *	long ftell(FILE *stream);
  */
-int default_c99_handler_ftell(char *ls, unsigned long opdata)
+static int default_c99_handler_ftell(char *ls, unsigned long opdata)
 {
     DECL_1_ARGS();
     DECL_RET();
@@ -1810,7 +1771,6 @@ int default_c99_handler_ftell(char *ls, unsigned long opdata)
     int rc;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(FTELL);
     stream = get_FILE(arg0->slot[0]);
     rc = ftell(stream);
     PUT_LS_RC(rc, 0, 0, errno);
@@ -1827,13 +1787,12 @@ int default_c99_handler_ftell(char *ls, unsigned long opdata)
  *
  *	void rewind(FILE *stream);
  */
-int default_c99_handler_rewind(char *ls, unsigned long opdata)
+static int default_c99_handler_rewind(char *ls, unsigned long opdata)
 {
     DECL_1_ARGS();
     FILE *stream;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(REWIND);
     stream = get_FILE(arg0->slot[0]);
     rewind(stream);
     return 0;
@@ -1849,13 +1808,12 @@ int default_c99_handler_rewind(char *ls, unsigned long opdata)
  *
  *	void clearerr(FILE *stream);
  */
-int default_c99_handler_clearerr(char *ls, unsigned long opdata)
+static int default_c99_handler_clearerr(char *ls, unsigned long opdata)
 {
     DECL_1_ARGS();
     FILE *stream;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(CLEARERR);
     stream = get_FILE(arg0->slot[0]);
     clearerr(stream);
     return 0;
@@ -1871,7 +1829,7 @@ int default_c99_handler_clearerr(char *ls, unsigned long opdata)
  *
  *	int feof(FILE *stream);
  */
-int default_c99_handler_feof(char *ls, unsigned long opdata)
+static int default_c99_handler_feof(char *ls, unsigned long opdata)
 {
     DECL_1_ARGS();
     DECL_RET();
@@ -1879,7 +1837,6 @@ int default_c99_handler_feof(char *ls, unsigned long opdata)
     int rc;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(FEOF);
     stream = get_FILE(arg0->slot[0]);
     rc = feof(stream);
     PUT_LS_RC(rc, 0, 0, errno);
@@ -1896,7 +1853,7 @@ int default_c99_handler_feof(char *ls, unsigned long opdata)
  *
  *	void ferror(FILE *stream);
  */
-int default_c99_handler_ferror(char *ls, unsigned long opdata)
+static int default_c99_handler_ferror(char *ls, unsigned long opdata)
 {
     DECL_1_ARGS();
     DECL_RET();
@@ -1904,7 +1861,6 @@ int default_c99_handler_ferror(char *ls, unsigned long opdata)
     int rc;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(FERROR);
     stream = get_FILE(arg0->slot[0]);
     rc = ferror(stream);
     PUT_LS_RC(rc, 0, 0, errno);
@@ -1914,21 +1870,26 @@ int default_c99_handler_ferror(char *ls, unsigned long opdata)
 /**
  * default_c99_handler_perror
  * @ls: base pointer to SPE local-store area.
- * @opdata: per C99 call opcode & data.
+ * @opdata: per C99 call opcode & data, plus the value of errno on the SPU
+ * must be passed.
  *
  * SPE C99 library operation, per: ISO/IEC C Standard 9899:1999,
  * implementing:
  *
- *	void perror(const char *s);
+ *  void perror(const char *s);
  */
-int default_c99_handler_perror(char *ls, unsigned long opdata)
+static int default_c99_handler_perror(char *ls, unsigned long opdata)
 {
-    DECL_1_ARGS();
+    DECL_2_ARGS();
     char *s;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(PERROR);
     s = GET_LS_PTR_NULL(arg0->slot[0]);
+    errno = arg1->slot[0];
+    /*
+     * Older versions did not pass errno, so using older SPU newlib with
+     * current libspe will likely give ouput like "Unknown error 262016".
+     */
     perror(s);
     return 0;
 }
@@ -1943,7 +1904,7 @@ int default_c99_handler_perror(char *ls, unsigned long opdata)
  *
  *	int system(const char *string);
  */
-int default_c99_handler_system(char *ls, unsigned long opdata)
+static int default_c99_handler_system(char *ls, unsigned long opdata)
 {
     DECL_1_ARGS();
     DECL_RET();
@@ -1951,55 +1912,55 @@ int default_c99_handler_system(char *ls, unsigned long opdata)
     int rc;
 
     DEBUG_PRINTF("%s\n", __func__);
-    CHECK_C99_OPCODE(SYSTEM);
     string = GET_LS_PTR(arg0->slot[0]);
     rc = system(string);
     PUT_LS_RC(rc, 0, 0, errno);
     return 0;
 }
 
-int (*default_c99_funcs[SPE_C99_NR_OPCODES]) (char *, unsigned long) = {
-	default_c99_handler_clearerr,
-	default_c99_handler_fclose,
-	default_c99_handler_feof,
-	default_c99_handler_ferror,
-	default_c99_handler_fflush,
-	default_c99_handler_fgetc,
-	default_c99_handler_fgetpos,
-	default_c99_handler_fgets,
-	default_c99_handler_fileno,
-	default_c99_handler_fopen,
-	default_c99_handler_fputc,
-	default_c99_handler_fputs,
-	default_c99_handler_fread,
-	default_c99_handler_freopen,
-	default_c99_handler_fseek,
-	default_c99_handler_fsetpos,
-	default_c99_handler_ftell,
-	default_c99_handler_fwrite,
-	default_c99_handler_getc,
-	default_c99_handler_getchar,
-	default_c99_handler_gets,
-	default_c99_handler_perror,
-	default_c99_handler_putc,
-	default_c99_handler_putchar,
-	default_c99_handler_puts,
-	default_c99_handler_remove,
-	default_c99_handler_rename,
-	default_c99_handler_rewind,
-	default_c99_handler_setbuf,
-	default_c99_handler_setvbuf,
-	default_c99_handler_system,
-	default_c99_handler_tmpfile,
-	default_c99_handler_tmpnam,
-	default_c99_handler_ungetc,
-	default_c99_handler_vfprintf,
-	default_c99_handler_vfscanf,
-	default_c99_handler_vprintf,
-	default_c99_handler_vscanf,
-	default_c99_handler_vsnprintf,
-	default_c99_handler_vsprintf,
-	default_c99_handler_vsscanf,
+static int (*default_c99_funcs[SPE_C99_NR_OPCODES]) (char *, unsigned long) = {
+	[SPE_C99_UNUSED]	= NULL,
+	[SPE_C99_CLEARERR]	= default_c99_handler_clearerr,
+	[SPE_C99_FCLOSE]	= default_c99_handler_fclose,
+	[SPE_C99_FEOF]		= default_c99_handler_feof,
+	[SPE_C99_FERROR]	= default_c99_handler_ferror,
+	[SPE_C99_FFLUSH]	= default_c99_handler_fflush,
+	[SPE_C99_FGETC]		= default_c99_handler_fgetc,
+	[SPE_C99_FGETPOS]	= default_c99_handler_fgetpos,
+	[SPE_C99_FGETS]		= default_c99_handler_fgets,
+	[SPE_C99_FILENO]	= default_c99_handler_fileno,
+	[SPE_C99_FOPEN]		= default_c99_handler_fopen,
+	[SPE_C99_FPUTC]		= default_c99_handler_fputc,
+	[SPE_C99_FPUTS]		= default_c99_handler_fputs,
+	[SPE_C99_FREAD]		= default_c99_handler_fread,
+	[SPE_C99_FREOPEN]	= default_c99_handler_freopen,
+	[SPE_C99_FSEEK]		= default_c99_handler_fseek,
+	[SPE_C99_FSETPOS]	= default_c99_handler_fsetpos,
+	[SPE_C99_FTELL]		= default_c99_handler_ftell,
+	[SPE_C99_FWRITE]	= default_c99_handler_fwrite,
+	[SPE_C99_GETC]		= default_c99_handler_getc,
+	[SPE_C99_GETCHAR]	= default_c99_handler_getchar,
+	[SPE_C99_GETS]		= default_c99_handler_gets,
+	[SPE_C99_PERROR]	= default_c99_handler_perror,
+	[SPE_C99_PUTC]		= default_c99_handler_putc,
+	[SPE_C99_PUTCHAR]	= default_c99_handler_putchar,
+	[SPE_C99_PUTS]		= default_c99_handler_puts,
+	[SPE_C99_REMOVE]	= default_c99_handler_remove,
+	[SPE_C99_RENAME]	= default_c99_handler_rename,
+	[SPE_C99_REWIND]	= default_c99_handler_rewind,
+	[SPE_C99_SETBUF]	= default_c99_handler_setbuf,
+	[SPE_C99_SETVBUF]	= default_c99_handler_setvbuf,
+	[SPE_C99_SYSTEM]	= default_c99_handler_system,
+	[SPE_C99_TMPFILE]	= default_c99_handler_tmpfile,
+	[SPE_C99_TMPNAM]	= default_c99_handler_tmpnam,
+	[SPE_C99_UNGETC]	= default_c99_handler_ungetc,
+	[SPE_C99_VFPRINTF]	= default_c99_handler_vfprintf,
+	[SPE_C99_VFSCANF]	= default_c99_handler_vfscanf,
+	[SPE_C99_VPRINTF]	= default_c99_handler_vprintf,
+	[SPE_C99_VSCANF]	= default_c99_handler_vscanf,
+	[SPE_C99_VSNPRINTF]	= default_c99_handler_vsnprintf,
+	[SPE_C99_VSPRINTF]	= default_c99_handler_vsprintf,
+	[SPE_C99_VSSCANF]	= default_c99_handler_vsscanf,
 };
 
 /**
@@ -2009,7 +1970,7 @@ int (*default_c99_funcs[SPE_C99_NR_OPCODES]) (char *, unsigned long) = {
  *
  * Top-level dispatch for SPE C99 library operations.
  */
-int default_c99_handler(unsigned long *base, unsigned long offset)
+int _base_spe_default_c99_handler(unsigned long *base, unsigned long offset)
 {
     int op, opdata; 
 
@@ -2026,7 +1987,7 @@ int default_c99_handler(unsigned long *base, unsigned long offset)
         return 1;
     }
 
-    default_c99_funcs[op-1] ((char *) base, opdata);
+    default_c99_funcs[op] ((char *) base, opdata);
 
     return 0;
 }

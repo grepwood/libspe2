@@ -29,6 +29,7 @@
 #include <sys/mman.h>
 
 #include "spe.h"
+#include "spebase.h"
 
 #define __PRINTF(fmt, args...) { fprintf(stderr,fmt , ## args); }
 #ifdef DEBUG

@@ -22,9 +22,7 @@
 
 #include "spebase.h"
 
-extern void *mapfileat( int dir, const char* filename, int size);
-extern int setsignotify(int dir, const char* filename);
-extern int open_if_closed(struct spe_context *spe, enum fd_name fdesc, int locked);
-extern void close_if_open(struct spe_context *spe, enum fd_name fdesc);
+extern int _base_spe_open_if_closed(struct spe_context *spe, enum fd_name fdesc, int locked);
+extern void _base_spe_close_if_open(struct spe_context *spe, enum fd_name fdesc);
 
 #endif

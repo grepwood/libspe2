@@ -58,7 +58,7 @@ static const unsigned char expected[EI_PAD] = {
 	[EI_ABIVERSION] = 0
 };
 
-int
+static int
 check_spe_elf(Elf32_Ehdr *ehdr)
 {
 	/* Validate ELF */
@@ -96,7 +96,7 @@ check_spe_elf(Elf32_Ehdr *ehdr)
  * verifies integrity of an SPE image
  */
 int  
-verify_spe_elf_image(spe_program_handle_t *handle)
+_base_spe_verify_spe_elf_image(spe_program_handle_t *handle)
 {
 	Elf32_Ehdr *ehdr;
 	void *elf_start;
@@ -108,7 +108,7 @@ verify_spe_elf_image(spe_program_handle_t *handle)
 }
 
 int
-spe_parse_isolated_elf(spe_program_handle_t *handle,
+_base_spe_parse_isolated_elf(spe_program_handle_t *handle,
 		uint64_t *addr, uint32_t *size)
 {
 	Elf32_Ehdr *ehdr = (Elf32_Ehdr *)handle->elf_image;
@@ -198,7 +198,7 @@ copy_to_ld_buffer(spe_program_handle_t *handle, void *buffer, Elf32_Phdr
 }
 
 int
-load_spe_elf (spe_program_handle_t *handle, void *ld_buffer, struct spe_ld_info *ld_info)
+_base_spe_load_spe_elf (spe_program_handle_t *handle, void *ld_buffer, struct spe_ld_info *ld_info)
 {
 	Elf32_Ehdr *ehdr;
 	Elf32_Phdr *phdr;
@@ -351,7 +351,7 @@ toe_check_syms(Elf32_Ehdr *ehdr, Elf32_Shdr *sh)
 	return ret;
 }
 
-int toe_ear (spe_program_handle_t *speh)
+int _base_spe_toe_ear (spe_program_handle_t *speh)
 {
 	Elf32_Ehdr *ehdr;
 	Elf32_Shdr *shdr, *sh;

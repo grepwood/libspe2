@@ -39,15 +39,13 @@ struct spe_ld_info
 /*
  * Global API : */
 
-int check_spe_elf(Elf32_Ehdr *ehdr);
+int _base_spe_verify_spe_elf_image(spe_program_handle_t *handle);
 
-int verify_spe_elf_image(spe_program_handle_t *handle);
+int _base_spe_load_spe_elf (spe_program_handle_t *handle, void *ld_buffer,
+			    struct spe_ld_info *ld_info);
 
-int load_spe_elf (spe_program_handle_t *handle, void *ld_buffer,
-		  struct spe_ld_info *ld_info);
-		  
-int spe_parse_isolated_elf(spe_program_handle_t *handle,
-		uint64_t *addr, uint32_t *size);
-		
-int toe_ear (spe_program_handle_t *speh);
+int _base_spe_parse_isolated_elf(spe_program_handle_t *handle,
+				 uint64_t *addr, uint32_t *size);
+
+int _base_spe_toe_ear (spe_program_handle_t *speh);
 		  
