@@ -231,6 +231,9 @@ spe_context_ptr_t _base_spe_context_create(unsigned int flags,
 	}
 
 	/* initialise spu_createflags */
+	if (flags & SPE_NOSCHED)
+		spu_createflags |=  SPU_CREATE_NOSCHED;
+
 	if (flags & SPE_ISOLATE) {
 		flags |= SPE_MAP_PS;
 		spu_createflags |= SPU_CREATE_ISOLATE | SPU_CREATE_NOSCHED;

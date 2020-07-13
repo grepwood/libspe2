@@ -42,6 +42,7 @@
 
 #include "default_posix1_handler.h"
 #include "handler_utils.h"
+#include "spebase.h"
 
 /* SPE POSIX.1 Handlers - Overview:
  * This file implements handlers for SPE POSIX.1 library calls such as 

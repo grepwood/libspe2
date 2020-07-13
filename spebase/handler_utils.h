@@ -20,15 +20,6 @@
 #ifndef __HANDLER_UTILS_H__
 #define __HANDLER_UTILS_H__
 
-struct spe_reg128 {
-    unsigned int slot[4];
-};
-
-#ifndef LS_SIZE
-#define LS_SIZE                       0x40000   /* 256K (in bytes) */
-#define LS_ADDR_MASK                  (LS_SIZE - 1)
-#endif /* LS_SIZE */
-
 #define __PRINTF(fmt, args...) { fprintf(stderr,fmt , ## args); }
 #ifdef DEBUG
 #define DEBUG_PRINTF(fmt, args...) __PRINTF(fmt , ## args)

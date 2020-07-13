@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 
 #include "default_libea_handler.h"
+#include "spebase.h"
 #include "handler_utils.h"
 #include <stdlib.h>
 #include <stdio.h>

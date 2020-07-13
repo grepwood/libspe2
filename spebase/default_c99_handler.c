@@ -29,6 +29,7 @@
 
 #include "default_c99_handler.h"
 #include "handler_utils.h"
+#include "spebase.h"
 
 /* SPE C99 Handlers - Overview:
  * This file implements handlers for SPE C99 library operations such 

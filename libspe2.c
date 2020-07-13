@@ -60,6 +60,10 @@ spe_context_ptr_t spe_context_create(unsigned int flags, spe_gang_context_ptr_t 
  */
 spe_context_ptr_t spe_context_create_affinity(unsigned int flags, spe_context_ptr_t affinity_neighbor, spe_gang_context_ptr_t gang)
 {
+	if ( gang == NULL ) {
+		errno = ESRCH;
+		return NULL;
+	}
 	spe_context_ptr_t spe = _base_spe_context_create(flags, gang, affinity_neighbor);
 	if ( spe == NULL ) {
 		return NULL;

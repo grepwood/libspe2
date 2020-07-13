@@ -108,6 +108,10 @@ struct spe_context_base_priv {
 	 int active_tagmask;
 };
 
+struct spe_reg128 {
+    unsigned int slot[4];
+};
+
 
 /* spe related sizes
  */
@@ -124,6 +128,8 @@ struct spe_context_base_priv {
 #define CNTL_OFFSET			0x04000
 #define SIGNAL1_OFFSET			0x14000
 #define SIGNAL2_OFFSET			0x1c000
+
+#define LS_ADDR_MASK			(LS_SIZE - 1)
 
 /**
  * Location of the PPE-assisted library call buffer

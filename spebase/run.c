@@ -35,6 +35,7 @@
 #include "elf_loader.h"
 #include "lib_builtin.h"
 #include "spebase.h"
+#include "regs.h"
 
 /*Thread-local variable for use by the debugger*/
 __thread struct spe_context_info {
@@ -49,27 +50,6 @@ static void cleanupspeinfo(struct spe_context_info *ctxinfo)
 {
 	struct spe_context_info *tmp = ctxinfo->prev;
 	__spe_current_active_context = tmp;
-}
-
-static int set_regs(struct spe_context *spe, void *regs)
-{
-	int fd_regs, rc;
-
-	fd_regs = openat(spe->base_private->fd_spe_dir, "regs", O_RDWR);
-	if (fd_regs < 0) {
-		DEBUG_PRINTF("Could not open SPE regs file.\n");
-		errno = EFAULT;
-		return -1;
-	}
-
-	rc = write(fd_regs, regs, 2048);
-
-	close(fd_regs);
-
-	if (rc < 0)
-		return -1;
-
-	return 0;
 }
 
 static int issue_isolated_exit(struct spe_context *spe)
@@ -128,43 +108,41 @@ int _base_spe_context_run(spe_context_ptr_t spe, unsigned int *entry,
 				(SPE_ISOLATE | SPE_ISOLATE_EMULATE))) {
 
 		addr64 argp64, envp64, tid64, ls64;
-		unsigned int regs[128][4];
+		struct spe_reg_state reg_state;
 
 		/* setup parameters */
 		argp64.ull = (uint64_t)(unsigned long)argp;
 		envp64.ull = (uint64_t)(unsigned long)envp;
 		tid64.ull = (uint64_t)(unsigned long)spe;
+		ls64.ull = (uint64_t)(unsigned long)
+				spe->base_private->mem_mmap_base;
 
 		/* make sure the register values are 0 */
-		memset(regs, 0, sizeof(regs));
-
-		/* set sensible values for stack_ptr and stack_size */
-		regs[1][0] = (unsigned int) LS_SIZE - 16; 	/* stack_ptr */
-		regs[2][0] = 0; 							/* stack_size ( 0 = default ) */
+		memset(&reg_state, 0, sizeof(reg_state));
 
 		if (runflags & SPE_RUN_USER_REGS) {
 			/* When SPE_USER_REGS is set, argp points to an array
 			 * of 3x128b registers to be passed directly to the SPE
 			 * program.
 			 */
-			memcpy(regs[3], argp, sizeof(unsigned int) * 12);
+			memcpy(&reg_state, argp, 3 * sizeof(struct spe_reg128));
 		} else {
-			regs[3][0] = tid64.ui[0];
-			regs[3][1] = tid64.ui[1];
+			reg_state.r3.slot[0] = tid64.ui[0];
+			reg_state.r3.slot[1] = tid64.ui[1];
 
-			regs[4][0] = argp64.ui[0];
-			regs[4][1] = argp64.ui[1];
+			reg_state.r4.slot[0] = argp64.ui[0];
+			reg_state.r4.slot[1] = argp64.ui[1];
 
-			regs[5][0] = envp64.ui[0];
-			regs[5][1] = envp64.ui[1];
+			reg_state.r5.slot[0] = envp64.ui[0];
+			reg_state.r5.slot[1] = envp64.ui[1];
+
 		}
-		
-		/* Store the LS base address in R6 */
-		ls64.ull = (uint64_t)(unsigned long)spe->base_private->mem_mmap_base;
-		regs[6][0] = ls64.ui[0];
-		regs[6][1] = ls64.ui[1];
+		reg_state.r6.slot[0] = ls64.ui[0];
+		reg_state.r6.slot[1] = ls64.ui[1];
 
-		if (set_regs(spe, regs))
+		reg_state.entry.slot[0] = tmp_entry;
+
+		if (_base_spe_setup_registers(spe, &reg_state, &tmp_entry))
 			return -1;
 	}
 

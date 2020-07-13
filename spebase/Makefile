@@ -31,7 +31,7 @@ libspebase_SONAME	:= libspebase.so.${MAJOR_VERSION}
 
 libspebase_OBJS := create.o  elf_loader.o load.o run.o image.o lib_builtin.o \
 				default_c99_handler.o default_posix1_handler.o default_libea_handler.o \
-				dma.o mbox.o accessors.o info.o
+				dma.o mbox.o accessors.o info.o regs.o
 
 CFLAGS += -I..
 CFLAGS += -D_ATFILE_SOURCE
