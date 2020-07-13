@@ -17,15 +17,14 @@
 #*   Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #*
 
-CC := gcc
-SPECC := spu-gcc
-CTAGS = ctags
+TOP=../../..
 
-CFLAGS := -O2 -m32 -Wall -g -I../../../../head-libspe
-SPECFLAGS := -O2 -Wall 
+include $(TOP)/make.defines
 
-LDFLAGS := -m32 
-LIBS := -L../../../spebase -L../.. -lspe -lspebase -lpthread
+CFLAGS += -I../.. -I$(TOP) -I$(TOP)/spebase -g $(TEST_CFLAGS)
+
+LDFLAGS = $(TEST_LDFLAGS)
+LIBS := -L ../.. -lspe -lpthread
 
 SPE_OBJS := spe-test-block spe-test-pause spe-test-start-stop spe-test-mboxwait
 SPE_OBJS += spe-test-ppedma spe-test-ibox2 spe-test-mbox-block
@@ -40,4 +39,4 @@ ft: ft.c
 	$(CC) -o $@ $< $(CFLAGS) $(LDFLAGS) $(LIBS)
 
 $(SPE_OBJS): %: %.c
-	$(SPECC) $(SPECFLAGS) -o $@ $<
+	$(SPU_CC) $(SPU_CFLAGS) -o $@ $<

@@ -24,6 +24,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <sys/mman.h>
 #include <sys/poll.h>
 
 #include "create.h"
@@ -102,6 +103,10 @@ static int spe_do_mfc_put(spe_context_ptr_t spectx, unsigned src, void *dst,
 	}
 	else {
 		/* the kernel does not support DMA, so just copy directly */
+		if (spectx->base_private->mem_mmap_base == MAP_FAILED) {
+			errno = EINVAL;
+			return -1;
+		}
 		memcpy(dst, spectx->base_private->mem_mmap_base + src, size);
 		return 0;
 	}
@@ -118,6 +123,10 @@ static int spe_do_mfc_get(spe_context_ptr_t spectx, unsigned int dst, void *src,
 	}
 	else {
 		/* the kernel does not support DMA, so just copy directly */
+		if (spectx->base_private->mem_mmap_base == MAP_FAILED) {
+			errno = EINVAL;
+			return -1;
+		}
 		memcpy(spectx->base_private->mem_mmap_base + dst, src, size);
 		return 0;
 	}

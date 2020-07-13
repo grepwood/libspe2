@@ -167,12 +167,49 @@ static int default_libea_handler_realloc(char *ls, unsigned long opdata)
 
 }
 
+/**
+ * default_libea_handler_posix_memalign
+ * @ls: base pointer to local store area.
+ * @opdata: LIBEA call opcode & data.
+ *
+ * LIBEA library operation, implement:
+ *
+ *          int posix_memalign(void **memptr, size_t alignment, size_t size);
+ *
+ * memptr is an LS pointer that points to an EA pointer, so *memptr is 32
+ * or 64 bits long.
+ */
+static int default_libea_handler_posix_memalign(char *ls, unsigned long opdata)
+{
+  DECL_3_ARGS();
+  DECL_RET();
+  size_t size, alignment;
+  void **memptr;
+  int rc;
+
+  memptr = GET_LS_PTR(arg0->slot[0]);
+  alignment = arg64_to_size_t(arg1);
+  size = arg64_to_size_t(arg2);
+
+  if(arg2->slot[0] == 0 || sizeof(size) == 8)
+    rc = posix_memalign(memptr, alignment, size);
+  else
+    /*
+     * Yes, rc and not errno since posix_memalign never sets errno.
+     */
+    rc = ENOMEM;
+
+  PUT_LS_RC(rc, 0, 0, 0);
+  return 0;
+}
+
 static int (*default_libea_funcs[SPE_LIBEA_NR_OPCODES]) (char *, unsigned long) = {
 	[SPE_LIBEA_UNUSED]		= NULL,
 	[SPE_LIBEA_CALLOC]		= default_libea_handler_calloc,
 	[SPE_LIBEA_FREE]		= default_libea_handler_free,
 	[SPE_LIBEA_MALLOC]		= default_libea_handler_malloc,
 	[SPE_LIBEA_REALLOC]		= default_libea_handler_realloc,
+            [SPE_LIBEA_POSIX_MEMALIGN]          = default_libea_handler_posix_memalign,
 };
 
 /**

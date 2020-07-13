@@ -17,14 +17,13 @@
 #*   Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #*
 
-CC := gcc
-SPECC := spu-gcc
-CTAGS = ctags
+TOP=../../..
 
-CFLAGS := -O2 -m32 -Wall -g -I../..
-SPECFLAGS := -O2 -Wall 
+include $(TOP)/make.defines
 
-LDFLAGS := -m32
+CFLAGS += -I../.. -I$(TOP) -I$(TOP)/spebase -g $(TEST_CFLAGS)
+
+LDFLAGS = $(TEST_LDFLAGS)
 LIBS := -L ../.. -lspe -lpthread
 
 SPE_OBJS := spe-start-stop
@@ -36,8 +35,7 @@ clean:
 	rm -f $(OBJS) $(SPE_OBJS)
 
 ppe-start-stop: ppe-start-stop.c ../../libspe.a
-	$(CC) -o $@ $< $(CFLAGS) $(LDFLAGS) $(LIBS)
+	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS) $(LIBS)
 
 spe-start-stop: spe-start-stop.c
-	$(SPECC) $(SPECFLAGS) -o $@ $<
-
+	$(SPU_CC) $(SPU_CFLAGS) -o $@ $<

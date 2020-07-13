@@ -1,0 +1,226 @@
+                             libspe2 test suite
+
+
+1. Introduction
+
+   This is a suite of tests for the SPE runtime management library
+   version 2, aka libspe2. The major purposes of the tests are:
+
+     * function tests of libspe2
+       - checking if the implementation conforms to the spec or not.
+
+     * system tests of libspe2
+       - checking robustness.
+
+     * confirmation of libspe2's usage scenarios
+       - checking if the spec is reasonable or not.
+
+   and in addition to the aboves:
+
+     * system tests of SPUFS
+       - additional tests for SPUFS
+
+
+2. Requirements
+
+   * Hardware
+     - target machine (Cell/B.E. hardware)
+
+   * Runtime environment
+     - Linux kernel with SPUFS
+     - generic userland
+
+   * Software
+     - GNU make
+     - PowerPC or PPU GNU toolchain (gcc or ppu-gcc)
+     - SPU GNU toolchain (spu-gcc)
+     - libspe2 (target of this test suite)
+
+
+3. License
+
+  This test suite is licensed under the terms in the file 'COPYING' in
+  the top directory.
+
+
+4. Running tests
+
+   * To run all tests, follow the steps below:
+
+     i. Login your target machine.
+
+   (ii. Build the library in the top directory.)
+
+   iii. Run 'make check' in this directory.
+
+   * Type "make help" for details.
+
+   * You can run each test set separately by running 'make
+     check-<test-set>' in this directory or 'make check' in the test
+     set's subdirectory.
+
+   * You can run each test case separately by running 'make
+     check-<test-case>' in the test set's subdirectory.
+
+   * You can modify many of test parameters.
+
+
+5. Evaluating results
+
+   * A result of each test is displayed as following:
+
+     <TEST_NAME>: <RESULT>
+
+     If a test passes, the value of <RESULT> is "PASS", otherwise
+     "FAIL".
+
+   * A list of passed test cases and a list of failed test cases are
+     displayed at the end of each test set.
+
+   * A list of passed test sets and a list of failed test sets are
+     displayed at the end of all tests.
+
+   * If all tests passed, the list of failed test sets is empty and
+     the make command returns zero.
+
+     Otherwise, a list of failed tests are displayed, and the make
+     command returns a non-zero value.
+
+
+6. Adding new test cases
+
+   * Test sets and test cases
+
+     This test suite consists of several test sets, which are groups
+     of test cases. You can add a new test case to the test suite by
+     appending it to one of the existing test sets. You also can
+     define a new test set in the test suite.
+
+     Each test set has its own subdirectory which named
+     libspe2.<test-set>. All test cases which belong to a test set is
+     included in the test set's subdirectory. E.g. The subdirectory
+     libspe2.run is corresponding to the test set 'run', and a test
+     case 'test_run_image.elf' which is part of the test set 'run' is
+     located in the subdirectory 'libspe2.run'.
+
+   * Adding a new test case to a test set
+
+     To add a new test case to an existing test set, follow the steps
+     below:
+
+     i. Add the file name of the main PPU program of the new test case
+        to the macro 'main_progs' in the Makefile of the test set.
+        The PPU program can be either a script or an ELF executable.
+
+        - The file name is used as the name of the test case.
+
+          e.g.) If the file name is 'test_my_case.elf', the name of
+          the test case will be 'test_may_case.elf'.
+
+        - If the test passes, the main PPU program must return zero
+          to the system, otherwise must retun non-zero value.
+
+        - If your test case is an ELF executable, it must have the
+          suffix '.elf'.
+
+        e.g.) If your new test case is 'test_my_case.elf' and you want
+        to add it to the 'run' test set, modify the macro 'main_progs'
+        in libspe2.run/Makefile as:
+
+            main_progs = \
+                    test_my_case.elf \
+                    ...
+
+    ii. If the new test case requires other external PPU executables,
+        add the file name of them to the macro 'ppu_progs' in the
+        Makefile of the test set.
+
+        - The PPU ELF executables must have the suffix '.elf'.
+
+        e.g.) If the test case 'test_my_case.sh' in the 'run' test set
+        requires an external helper program 'test_my_case_helper.elf',
+        add the following definition to libspe2.run/Makefile:
+
+            ppu_progs = \
+                    test_my_case_helper.elf \
+                    ...
+
+   iii. If the new test case requires external SPU ELF executables,
+        i.e. if the test case load the SPU ELF executables by using
+        the spe_image_open API function, add the file name of them to
+        the macro 'spu_progs' in the Makefile of the test set.
+
+        - The SPU executables must have the suffix '.spu.elf'.
+
+        - It is unnecessary to add embeded SPU programs to the
+          macro (see the step iv).
+
+    iv. Add extra dependencies of the PPU and/or SPU ELF executables
+        in the Makefile of the test set.
+
+        - The PPU object files must have the suffix '.o'.
+
+        - The SPU object files must have the suffix '.spu.o'.
+
+        - It is unnecessary to add the main object files which have
+          the same base name as the ELF executables to the extra
+          dependencies.
+
+          e.g.) If the added program is 'test_my_case.spu.elf',
+          you have no need to add 'test_my_case.spu.o' to the
+          dependency of 'test_my_case.spu.elf'.
+
+        - If you want to embed an SPU program into a PPE ELF
+          executable, all you must do is just adding the name of the
+          CESOF file which contains the SPE program to the dependency
+          of the PPE ELF executable.
+
+          o The CESOF files must have the suffix '.embed.o'.
+
+          o The embeded SPU programs can be accessed as
+            'spe_program_handle_t <base-name>' by the PPE ELF
+            executable.
+
+          e.g.) If you want to embed an SPU ELF executable
+          'spu_my_case.spu.elf' into the PPE ELF executable
+          'test_my_case_embed.elf', the definition of the dependency
+          of test_my_case.elf must be:
+
+              test_my_case.elf: spu_my_case.embed.o
+
+          and the SPU program can be accessed as 'spe_program_handle_t
+          spu_my_case'.
+
+     v. Add sources and/or scripts of the test case to the test set's
+        subdirectory.
+
+        - Sources of ELF executables must be written in C and must
+          have the suffix '.c'.
+
+   * Adding a new test set to the test suite
+
+     You can define a new test set to the test suite as following:
+
+     i. Add the name of the test set to the macro 'test_sets' in
+        Makefile.
+
+    ii. Create a new subdirectory 'libspe2.<test-set>'.
+
+   iii. Create the Makefile of the test set in the subdirectory.
+
+        - The Makefile must begin with the definition of the macro
+          'TEST_TOP' which is the relative path of this directory from
+          the subdirectory.
+
+        - The Makefile must include 'make.defines' in this directory
+          just after the definition of the 'TEST_TOP'.
+
+        - The Makefile must include 'make.rules' in this directory
+          just after the end of the definitions of the macros.
+
+        See existing Makefiles as samples.
+
+    vi. Add test cases to the new test set as above.
+
+---
+EOF

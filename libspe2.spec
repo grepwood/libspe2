@@ -43,6 +43,7 @@ Summary: SPE Runtime Management Library
 %endif
 %define _adabindingdir /usr/adainclude
 %define _includedir2 /usr/spu/include
+%define _spe_ld_dir /usr/lib/spe
 
 %define _initdir /etc/init.d
 %define _unpackaged_files_terminate_build 0
@@ -116,17 +117,20 @@ This tool acts as a standalone loader for spe binaries.
 %setup
 
 %build
-make SYSROOT=%{sysroot} %{set_optflags} prefix=%{_prefix} libdir=%{_libdir}
+
+%define _make_flags  ARCH=%{_target_cpu} SYSROOT=%{sysroot} %{set_optflags} prefix=%{_prefix} libdir=%{_libdir} spe_ld_dir=%{_spe_ld_dir}
+
+make %{_make_flags}
 %if %{build_common}
-make elfspe-all SYSROOT=%{sysroot} %{set_optflags} prefix=%{_prefix} libdir=%{_libdir}
+make elfspe-all %{_make_flags}
 %endif
 
 %install
 rm -rf $RPM_BUILD_ROOT%{sysroot}
 
-make install DESTDIR=$RPM_BUILD_ROOT SYSROOT=%{sysroot} prefix=%{_prefix} libdir=%{_libdir} speinclude=%{_includedir2}
+make install DESTDIR=$RPM_BUILD_ROOT %{_make_flags}
 %if %{build_common}
-make elfspe-install DESTDIR=$RPM_BUILD_ROOT SYSROOT=%{sysroot} prefix=%{_prefix} libdir=%{_libdir} speinclude=%{_includedir2}
+make elfspe-install DESTDIR=$RPM_BUILD_ROOT %{_make_flags}
 %endif
 
 mkdir -p $RPM_BUILD_ROOT%{sysroot}%{_initdir}

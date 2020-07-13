@@ -1,7 +1,7 @@
 Summary: user space tools for Cell/B.E.
 Name: spu-tools
-Version: 1.0
-Release: 2
+Version: 1.1
+Release: 3
 License: GPL
 Group: Applications/System
 Source0: spu-tools.tar.bz2
@@ -42,6 +42,17 @@ rm -rf $RPM_BUILD_ROOT
 %dir /%{_prefix}/share/man/man1/spu-ps.1.gz
 
 %changelog
+* Fri Apr 11 2008  Andre Detsch <adetsch@br.ibm.com> 1.1-3
+- Fix escape sequences handling on spu-top.
+- Fixed help example for spu-ps.
+
+* Tue Mar 18 2008 Andre Detsch <adetsch@br.ibm.com> 1.1-2
+- Fixed load averange printing.
+
+* Thu Mar 13 2008 Andre Detsch <adetsch@br.ibm.com> 1.1-1
+- Making Per-Process view explanation a bit clearer.
+- Additional space for some spu statistics.
+
 * Thu Jun 14 2007  Andre Detsch <adetsch@br.ibm.com> 1.0-2
 - Setting BuildRoot at spec file.
 - General fixes (src/ChangeLog)

@@ -17,16 +17,14 @@
 #*   Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #*
 
+TOP=../../..
 
-CC := gcc
-SPECC := spu-gcc
+include $(TOP)/make.defines
 
-CFLAGS := -O2 -Wall -I../.. -I../../include -g
-SPECFLAGS := -O2 -Wall -I../../include
-SPELDFLAGS := -L/usr/spu/lib
+CFLAGS += -I../.. -I$(TOP) -I$(TOP)/spebase -g $(TEST_CFLAGS)
 
+LDFLAGS = $(TEST_CFLAGS)
 LIBS := -L../.. -lspe -lpthread
-SPELIBS := -lc -lgloss
 
 SPE_OBJS := spe-helloworld
 OBJS := runspe
@@ -37,7 +35,7 @@ clean:
 	rm -f $(SPE_OBJS) $(OBJS)
 
 $(SPE_OBJS): %: %.c
-	$(SPECC) $(SPECFLAGS) $(SPELDFLAGS) -o $@ $< $(SPELIBS)
+	$(SPU_CC) $(SPU_CFLAGS) -o $@ $<
 
 $(OBJS): %: %.c
-	$(CC) $(CFLAGS) -o $@ $< $(LIBS)
+	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS) $(LIBS)

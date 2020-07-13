@@ -301,7 +301,7 @@ int _base_spe_out_intr_mbox_read(spe_context_ptr_t spectx,
 		return -1;
 	}
 
-	return rc / 4;
+	return total / 4;
 }
 
 int _base_spe_signal_write(spe_context_ptr_t spectx, 

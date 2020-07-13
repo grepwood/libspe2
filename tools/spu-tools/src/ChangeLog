@@ -1,3 +1,17 @@
+2008-04-11 Andre Detsch <adetsch@br.ibm.com>
+
+	* spu-top.c: Fix escape sequences handling.
+	* spu-ps.c: Fixed help example.
+
+2008-03-18 Andre Detsch <adetsch@br.ibm.com>
+
+	* spu-top.c: Fixed load averange printing.
+
+2008-03-13 Andre Detsch <adetsch@br.ibm.com>
+
+	* spu-top.c: making Per-Process view explanation a bit clearer.
+	* spu-info.c: additional space for some statistics.
+
 2007-07-11 Andre Detsch <adetsch@br.ibm.com>
 
 	* ctx-info.c: do not adding loaded time to ctx total time field.

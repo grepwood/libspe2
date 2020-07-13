@@ -209,13 +209,13 @@ struct field spu_fields[] = {
 	{ SPU_PERCENT_IOWAIT, "%WAI",  "%6s",  "%6.1f",  "SPU I/O Wait", 1, "" },
 	{ SPU_STATE,          "S",     "%2s",  "%2c",    "State",        1, "" },
 
-	{ SPU_VOLUNTARY_CTX_SWITCHES,   "VCSW",    "%5s", "%5llu", "Number of Voluntary Context Switches",     1, "" },
-	{ SPU_INVOLUNTARY_CTX_SWITCHES, "ICSW",    "%5s", "%5llu", "Number of Involuntary Context Switches",   1, "" },
-	{ SPU_SLB_MISSES,               "SLB",     "%5s", "%5llu", "Number of SLB Misses",                     1, "" },
-	{ SPU_HASH_FAULTS,              "HFLT",    "%5s", "%5llu", "Number of Hash Faults",                    1, "" },
-	{ SPU_MINOR_PAGE_FAULTS,        "mFLT",    "%5s", "%5llu", "Number of Minor Page Faults",              1, "" },
-	{ SPU_MAJOR_PAGE_FAULTS,        "MFLT",    "%5s", "%5llu", "Number of Major Page Faults",              1, "" },
-	{ SPU_CLASS2_INTERRUPTS,        "IRQ2",    "%5s", "%5llu", "Number of Class2 Interrupts Received",     1, "" },
+	{ SPU_VOLUNTARY_CTX_SWITCHES,   "VCSW",    "%6s", "%6llu", "Number of Voluntary Context Switches",     0, "" },
+	{ SPU_INVOLUNTARY_CTX_SWITCHES, "ICSW",    "%6s", "%6llu", "Number of Involuntary Context Switches",   0, "" },
+	{ SPU_SLB_MISSES,               "SLB",     "%6s", "%6llu", "Number of SLB Misses",                     1, "" },
+	{ SPU_HASH_FAULTS,              "HFLT",    "%6s", "%6llu", "Number of Hash Faults",                    1, "" },
+	{ SPU_MINOR_PAGE_FAULTS,        "mFLT",    "%6s", "%6llu", "Number of Minor Page Faults",              1, "" },
+	{ SPU_MAJOR_PAGE_FAULTS,        "MFLT",    "%6s", "%6llu", "Number of Major Page Faults",              1, "" },
+	{ SPU_CLASS2_INTERRUPTS,        "IRQ2",    "%6s", "%6llu", "Number of Class2 Interrupts Received",     1, "" },
 	{ SPU_PPE_LIBRARY,              "PPE_LIB", "%8s", "%8llu", "Number of PPE Assisted Library Calls Performed", 1, "" },
 
 	{ 0,            NULL,    NULL,      NULL,    NULL,                        0 }

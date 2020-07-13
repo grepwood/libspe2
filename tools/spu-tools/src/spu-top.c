@@ -151,7 +151,7 @@ void print_cpu_info(int min_time_has_passed)
 
 	wbkgdset(stdscr, COLOR_PAIR(WHITE_ON_BLACK));
 	get_cpus_loadavg(&avg1min, &avg5min, &avg15min);
-	mvprintw(1, 0, "Cpu(s) load avg: %5.1f%,%5.1f%,%5.1f%\n",
+	mvprintw(1, 0, "Cpu(s) load avg: %4.2f, %4.2f, %4.2f\n",
 		 	avg1min, avg5min, avg15min);
 
 	if (min_time_has_passed)
@@ -169,7 +169,7 @@ void print_spu_info(struct spu** spus, int min_time_has_passed)
 	wbkgdset(stdscr, COLOR_PAIR(WHITE_ON_BLACK));
 
 	get_spus_loadavg(&avg1min, &avg5min, &avg15min);
-	mvprintw(2, 0, "Spu(s) load avg: %5.1f%,%5.1f%,%5.1f%\n",
+	mvprintw(2, 0, "Spu(s) load avg: %4.2f, %4.2f, %4.2f\n",
 		 	avg1min, avg5min, avg15min);
 
 	if (min_time_has_passed)
@@ -343,7 +343,9 @@ static void usage()
 		"The spu-top program provides a dynamic real-time view of the\n"
 		"running system in regards to Cell/B.E. SPUs. It provides 3 view modes:""\n\n"
 		"* Per-Context: information about all instantiated SPU contexts.""\n\n"
-		"* Per-Process: information about each process that has associated SPU contexts.""\n\n"
+		"* Per-Process: same information as in Per-Context view, but consolidating\n"
+		"all data from the contexts belonging to a same process in a single line.\n"
+		"That means that statistics such as spu usage may reach number_of_spus * 100%%.\n\n"
 		"* Per-SPU: information about each physical SPU present on the system.""\n\n"
 		"Selection of mode and shown fields can be done within the program.""\n"
 		"Press 'h' while running spu-top for help on the interactive commands.""\n\n"
@@ -362,6 +364,7 @@ int main(int argc, char **argv)
 	struct proc** procs;
 	struct ctx** ctxs;
 	struct timeval last_time, current_time;
+	char* term;
 
 	/* Parse options */
 	static struct option long_options[] = {
@@ -390,6 +393,21 @@ int main(int argc, char **argv)
 	/* Init ncurses library */
 	init_ncurses();
 	halfdelay(refresh_delay);
+	keypad(stdscr, true);
+	term = getenv("TERM");
+	if (!strcmp(term, "xterm") || !strcmp(term, "xterm-color") || !strcmp(term, "vt220")) {
+		define_key("\033[H", KEY_HOME);
+		define_key("\033[F", KEY_END);
+		define_key("\033OP", KEY_F(1));
+		define_key("\033OQ", KEY_F(2));
+		define_key("\033OR", KEY_F(3));
+		define_key("\033OS", KEY_F(4));
+		define_key("\033[11~", KEY_F(1));
+		define_key("\033[12~", KEY_F(2));
+		define_key("\033[13~", KEY_F(3));
+		define_key("\033[14~", KEY_F(4));
+		define_key("\033[17;2~", KEY_F(18));
+	}
 
 	/* Handle signals */
 	atexit(quit);

@@ -56,12 +56,20 @@ int _base_spe_callback_handler_register(void * handler, unsigned int callnum, un
 			errno = EACCES;
 			return -1;
 		}
+		if (handler == NULL) {
+			errno = EINVAL;
+			return -1;
+		}
 		handlers[callnum] = handler;
 		break;
 
 	case SPE_CALLBACK_UPDATE:
 		if (handlers[callnum] == NULL) {
 			errno = ESRCH;
+			return -1;
+		}
+		if (handler == NULL) {
+			errno = EINVAL;
 			return -1;
 		}
 		handlers[callnum] = handler;

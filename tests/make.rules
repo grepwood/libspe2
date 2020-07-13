@@ -1,0 +1,82 @@
+#
+#  libspe2 - A wrapper library to adapt the JSRE SPU usage model to SPUFS
+#
+#  Copyright (C) 2008 Sony Computer Entertainment Inc.
+#  Copyright 2008 Sony Corp.
+#
+#  This library is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU Lesser General Public
+#  License as published by the Free Software Foundation; either
+#  version 2.1 of the License, or (at your option) any later version.
+#
+#  This library is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#  Lesser General Public License for more details.
+#
+#  You should have received a copy of the GNU Lesser General Public
+#  License along with this library; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+#
+
+# all individual check targets
+checks = $(patsubst %,check-%,$(main_progs) $(extra_main_progs))
+
+# list of ELFs
+ppu_elfs = $(filter %.elf,$(ppu_progs) $(main_progs) $(extra_main_progs))
+spu_elfs = $(filter %.elf,$(spu_progs))
+
+
+.PHONY: all check clean distclean $(checks)
+
+all: $(main_progs) $(extra_main_progs) $(ppu_progs) $(spu_progs)
+
+check:
+	@passed=""; \
+	failed=""; \
+	for p in $(main_progs); do \
+		if $(MAKE) -s check-$$p; then \
+			passed="$$passed $$p"; \
+		else \
+			failed="$$failed $$p"; \
+		fi; \
+	done; \
+	echo; \
+	echo "PASS:$$passed"; \
+	echo "FAIL:$$failed"; \
+	[ -z "$$failed" ]
+
+$(checks): check-%: %
+	@[ -n "$(LIBSPE2_LIB)" ] && export LD_LIBRARY_PATH='$(LIBSPE2_LIB)'; \
+	echo "$<: RUNNING"; \
+	if ./$<; then \
+		echo "$<: PASS"; \
+	else \
+		echo "$<: FAIL"; exit 1; \
+	fi
+
+clean:
+	-$(RM) *.elf *.o *.tmp `find . -maxdepth 1 -type l`
+
+distclean: clean
+	-$(RM) *~
+
+$(checks): $(ppu_progs) $(spu_progs)
+
+$(ppu_elfs:.elf=.o): $(TEST_COMMON)/ppu_libspe2_test.h \
+	$(TEST_COMMON)/common_libspe2_test.h $(TEST_CONFIG)
+
+$(ppu_elfs): $(ppu_utils)
+
+$(spu_elfs:.spu.elf=.spu.o) $(spu_elfs): $(TEST_COMMON)/spu_libspe2_test.h \
+	$(TEST_COMMON)/common_libspe2_test.h
+
+$(ppu_utils)::
+	$(MAKE) -C $(TEST_COMMON)
+
+$(TEST_CONFIG)::
+	$(MAKE) -C $(TEST_COMMON)
+
+# Local Variables:
+# mode: Makefile
+# End:

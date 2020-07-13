@@ -17,14 +17,13 @@
 #*   Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #*
 
-CC := gcc
-SPECC := spu-gcc
-CTAGS = ctags
+TOP=../../..
 
-CFLAGS := -O2 -m32 -Wall -I../.. -I../../include -g
-SPECFLAGS := -O2 -Wall -I../../include -Wno-main
+include $(TOP)/make.defines
 
-LDFLAGS := -m32
+CFLAGS += -I../.. -I$(TOP) -I$(TOP)/spebase -g $(TEST_CFLAGS)
+
+LDFLAGS := $(ARCH_CFLAGS) $(TEST_LDFLAGS)
 LIBS := -L../.. -lspe -lpthread
 
 SPE_OBJS := spe-dma-read spe-dma-write
@@ -39,9 +38,7 @@ ppe-dma-test: ppe-dma-test.c
 	$(CC) -o $@ $< $(CFLAGS) $(LDFLAGS) $(LIBS)
 
 spe-dma-read: spe-dma-read.c
-	$(SPECC) $(SPECFLAGS) -o $@ $<
+	$(SPU_CC) $(SPU_CFLAGS) -o $@ $<
 
 spe-dma-write: spe-dma-write.c
-	$(SPECC) $(SPECFLAGS) -o $@ $<
-
-
+	$(SPU_CC) $(SPU_CFLAGS) -o $@ $<

@@ -46,6 +46,7 @@ spe_program_handle_t *_base_spe_image_open(const char *filename)
 	if (!ret)
 		return NULL;
 
+	ret->speh.elf_image = MAP_FAILED;
 	ret->speh.handle_size = sizeof(spe_program_handle_t);
 	ret->speh.toe_shadow = NULL;
 
@@ -86,6 +87,8 @@ spe_program_handle_t *_base_spe_image_open(const char *filename)
 
 	/* err & cleanup */
 ret_err:
+	if (ret->speh.elf_image != MAP_FAILED)
+		munmap(ret->speh.elf_image, ret->map_size);
 	if (binfd >= 0)
 		close(binfd);
 

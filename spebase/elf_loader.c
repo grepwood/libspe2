@@ -197,6 +197,44 @@ copy_to_ld_buffer(spe_program_handle_t *handle, void *buffer, Elf32_Phdr
 	DEBUG_PRINTF("done ...\n");
 }
 
+/* Apply certain R_SPU_PPU* relocs in RH to SH.  We only handle relocs
+   without a symbol, which are to locations within ._ea.  */
+
+static void
+apply_relocations(spe_program_handle_t *handle, Elf32_Shdr *rh, Elf32_Shdr *sh)
+{
+#define R_SPU_PPU32 15
+#define R_SPU_PPU64 16
+	void *start = handle->elf_image;
+	Elf32_Rela *r, *r_end;
+	/* Relocations in an executable specify r_offset as a virtual
+	   address, but we are applying the reloc in the image before
+	   the section has been copied to its destination sh_addr.
+	   Adjust so as to poke relative to the image base.  */
+	void *reloc_base = start + sh->sh_offset - sh->sh_addr;
+
+	r = start + rh->sh_offset;
+	r_end = (void *)r + rh->sh_size;
+	DEBUG_PRINTF("apply_relocations: %p, %#x\n", r, rh->sh_size);
+	for (; r < r_end; ++r)
+	{
+		if (r->r_info == ELF32_R_INFO(0,R_SPU_PPU32)) {
+			Elf32_Word *loc = reloc_base + r->r_offset;
+			Elf32_Word v = (Elf32_Word)(long)start + r->r_addend;
+			/* Don't dirty pages unnecessarily.  */
+			if (*loc != v)
+				*loc = v;
+			DEBUG_PRINTF("PPU32(%p) = %#x\n", loc, v);
+		} else if (r->r_info == ELF32_R_INFO(0,R_SPU_PPU64)) {
+			Elf64_Xword *loc = reloc_base + r->r_offset;
+			Elf64_Xword v = (Elf64_Xword)(long)start + r->r_addend;
+			if (*loc != v)
+				*loc = v;
+			DEBUG_PRINTF("PPU64(%p) = %#llx\n", loc, v);
+		}
+	}
+}
+
 int
 _base_spe_load_spe_elf (spe_program_handle_t *handle, void *ld_buffer, struct spe_ld_info *ld_info)
 {
@@ -237,6 +275,8 @@ _base_spe_load_spe_elf (spe_program_handle_t *handle, void *ld_buffer, struct sp
 	for (sh = shdr; sh < &shdr[ehdr->e_shnum]; ++sh)
 	{
 		DEBUG_PRINTF("section name: %s ( start: 0x%04x, size: 0x%04x)\n", str_table+sh->sh_name, sh->sh_offset, sh->sh_size );
+		if (sh->sh_type == SHT_RELA)
+			apply_relocations(handle, sh, &shdr[sh->sh_info]);
 		if (strcmp(".toe", str_table+sh->sh_name) == 0) {
 			DEBUG_PRINTF("section offset: %d\n", sh->sh_offset);
 			toe_size += sh->sh_size;

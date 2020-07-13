@@ -42,7 +42,7 @@ edit = @sed \
 	-e 's,@includedir@,$(includedir),g' \
 	-e 's,@version@,$(VERSION),g'
 
-all:  $(libspe2_SO) $(libspe2_A) libspe12-all
+all:  libspe2.so $(libspe2_A) libspe12-all
 
 dist:  $(TARBALL)
 
@@ -92,7 +92,7 @@ elfspe-install:
 libspe12-install:
 	$(MAKE) -C libspe12 install
 
-tests: tests/Makefile
+tests: all
 	make -C tests
 
 ada : ada/Makefile
@@ -112,9 +112,13 @@ $(libspe2_SO): $(libspe2_OBJS) base-all  event-all libspe2.pc
 $(libspe2_A): $(libspe2_OBJS) base-all  event-all 
 	 $(CROSS)ar -r $(libspe2_A) $(libspe2_OBJS) spebase/*.o speevent/*.o $(libspe2_OBJS)
 
+$(libspe2_SONAME): $(libspe2_SO)
+	ln -sf $< $@
+
+libspe2.so: $(libspe2_SONAME)
+	ln -sf $< $@
 
 PATCHES		:= `cat series | grep -v ^\#`
-#RPMBUILD	= ppc32 rpmbuild --target=ppc 
 RPMBUILD	= rpmbuild 
 
 PWD	:= $(shell pwd)
@@ -138,27 +142,22 @@ $(PWD)/.rpmmacros:
 	mkdir -p $(SOURCES) $(RPMS) $(SRPMS) $(BUILD)
 	echo -e \%_topdir $(RPM)\\n\%_sourcedir $(PWD)\\n\%_tmppath %_topdir/tmp\\n\%_version $(RELEASE) > $@
 
-rpm: dist checkenv $(RPM)/$(PACKAGE)-stamp
+rpm: dist checkenv $(RPM)/$(PACKAGE)-$(RPM_ARCH)-stamp
 
-$(RPM)/$(PACKAGE)-stamp: $(PWD)/.rpmmacros $(SOURCEFILES) $(SPEC)
-	HOME=$(PWD) $(RPMBUILD) -ba $(SPEC) $(RPMFLAGS)
+$(RPM)/$(PACKAGE)-$(RPM_ARCH)-stamp: $(PWD)/.rpmmacros $(SOURCEFILES) $(SPEC)
+	HOME=$(PWD) $(RPMBUILD) -ba --target=$(RPM_ARCH) $(SPEC) $(RPMFLAGS)
 	touch $@
 
-crossrpm: dist checkenv $(RPM)/$(PACKAGE)-cross-stamp
+rpms: rpm32 rpm64
 
-$(RPM)/$(PACKAGE)-cross-stamp: $(PWD)/.rpmmacros $(SOURCEFILES) $(SPEC)
-	HOME=$(PWD) $(RPMBUILD) -ba $(SPEC) --target=noarch $(RPMFLAGS)
-	touch $@
-
-.PHONY: checkenv rpm crossrpm
-
-
-rpms: clean rpm rpm32
-
-rpm32: 
-	HOME=$(PWD) $(RPMBUILD) --target=ppc -ba $(SPEC) $(RPMFLAGS)
+crossrpm:
+	$(MAKE) CROSS_COMPILE=1 rpm
+rpm32:
+	$(MAKE) ARCH=ppc rpm
 rpm64: 
-	HOME=$(PWD) $(RPMBUILD) --target=ppc64 -ba $(SPEC) $(RPMFLAGS)
+	$(MAKE) ARCH=ppc64 rpm
+
+.PHONY: checkenv rpm crossrpm rpms rpm32 rpm64
 
 $(TARBALL): clean
 	ln -s . $(FULLNAME)
@@ -170,6 +169,7 @@ $(TARBALL): clean
 			--exclude=$(FULLNAME)/tests_hidden \
 			--exclude=$(FULLNAME)/patches \
 			--exclude=.svn \
+			--exclude=.ccache \
 			$(FULLNAME) 
 	rm $(FULLNAME)
 
@@ -196,9 +196,10 @@ apiref: clean
 
 
 
-clean: base-clean event-clean elfspe-clean libspe12-clean
+clean: base-clean event-clean elfspe-clean libspe12-clean tests-clean
 	rm *.diff ; true
 	rm -rf $(libspe2_A) $(libspe2_SO) $(libspe2_OBJS)
+	rm -f libspe2.so $(libspe2_SONAME)
 	rm -f $(TARBALL)
 	rm -f $(FULLNAME)
 	rm -f doc/*.pdf
@@ -207,6 +208,7 @@ clean: base-clean event-clean elfspe-clean libspe12-clean
 	rm -rf html
 	rm -rf latex
 	rm -f libspe2.pc
+	rm -f $(PWD)/.rpmmacros
 	make -C tests clean
 	make -C ada clean
 
@@ -223,9 +225,15 @@ elfspe-clean:
 libspe12-clean:
 	$(MAKE) -C libspe12 clean
 
+tests-clean:
+	$(MAKE) -C tests clean
 
 distclean: clean
+	$(MAKE) -C tests distclean
 	rm -rf latex
 	rm -rf html
 
-.PHONY: all clean tests tags
+check: tests
+	$(MAKE) -C tests -s check
+
+.PHONY: all clean check tests tags

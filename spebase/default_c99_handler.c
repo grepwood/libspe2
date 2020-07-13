@@ -919,8 +919,8 @@ static int default_c99_handler_fopen(char *ls, unsigned long opdata)
     int i, rc = 0, err = EMFILE;
 
     DEBUG_PRINTF("%s\n", __func__);
-    path = GET_LS_PTR(arg0->slot[0]);
-    mode = GET_LS_PTR(arg1->slot[0]);
+    path = GET_LS_PTR_NULL(arg0->slot[0]);
+    mode = GET_LS_PTR_NULL(arg1->slot[0]);
     pthread_mutex_lock(&spe_c99_file_mutex);
     if (nr_spe_FILE_ptrs < SPE_FOPEN_MAX) {
 	for (i = SPE_FOPEN_MIN; i < SPE_FOPEN_MAX; i++) {
@@ -964,8 +964,8 @@ static int default_c99_handler_freopen(char *ls, unsigned long opdata)
     if ((i <= 0) || (i >= SPE_FOPEN_MAX)) {
 	PUT_LS_RC(1, 0, 0, EBADF);
     } else {
-	path = GET_LS_PTR(arg0->slot[0]);
-	mode = GET_LS_PTR(arg1->slot[0]);
+	path = GET_LS_PTR_NULL(arg0->slot[0]);
+	mode = GET_LS_PTR_NULL(arg1->slot[0]);
 	pthread_mutex_lock(&spe_c99_file_mutex);
 	spe_FILE_ptrs[i] = freopen(path, mode, get_FILE_nolock(i));
 	if (spe_FILE_ptrs[i]) {

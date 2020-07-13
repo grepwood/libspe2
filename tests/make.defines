@@ -1,0 +1,71 @@
+#
+#  libspe2 - A wrapper library to adapt the JSRE SPU usage model to SPUFS
+#
+#  Copyright (C) 2008 Sony Computer Entertainment Inc.
+#  Copyright 2008 Sony Corp.
+#
+#  This library is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU Lesser General Public
+#  License as published by the Free Software Foundation; either
+#  version 2.1 of the License, or (at your option) any later version.
+#
+#  This library is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#  Lesser General Public License for more details.
+#
+#  You should have received a copy of the GNU Lesser General Public
+#  License along with this library; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+#
+
+TEST_TOP := $(abspath $(TEST_TOP))
+TOP = $(TEST_TOP)/..
+
+include $(TOP)/make.defines
+
+# configuration files
+TEST_COMMON = $(TEST_TOP)/common
+TEST_CONFIG= $(TEST_COMMON)/config_libspe2_test.h
+
+# libspe2 directories
+LIBSPE2_INCLUDE = $(TOP)
+LIBSPE2_LIB = $(TOP)
+
+# PPU toolchain
+CFLAGS += -g -I$(TEST_COMMON) -I$(LIBSPE2_INCLUDE) -I$(LIBSPE2_INCLUDE)/spebase $(TEST_CFLAGS)
+LDFLAGS = $(CFLAGS) -L$(TEST_COMMON) -L$(LIBSPE2_LIB) $(TEST_LDFLAGS) -lspe2 -lpthread
+
+# SPU toolchain
+SPU_CFLAGS = -g -I$(TEST_COMMON) -Wall -fno-builtin -Wno-format-zero-length
+SPU_LDFLAGS =
+
+# test paramegers
+TEST_ITERATION = 1
+TEST_SPES = 4
+TEST_VERBOSE = 0
+TEST_AFFINITY = 1
+
+# common rules
+%.spu.elf: %.spu.o
+	$(SPU_CC) $(filter %.spu.o,$^) -o $@ $(SPU_LDFLAGS)
+
+%.spu.o: %.c
+	$(SPU_CC) $(SPU_CFLAGS) -c $< -o $@
+
+%.elf: %.o
+	$(CC) $(filter %.o,$^) -o $@ $(LDFLAGS)
+
+%.embed.o: %.spu.elf
+	$(EMBEDSPU) $(ARCH_CFLAGS) $(subst .,_,$(subst -,_,$*)) $< $@
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# utility routines
+ppu_utils = $(addprefix $(TEST_COMMON)/,ppu_main.o ppu_file.o ppu_misc.o ppu_result.o ppu_thread.o)
+
+
+# Local Variables:
+# mode: Makefile
+# End:

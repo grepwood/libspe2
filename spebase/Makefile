@@ -23,7 +23,7 @@ include $(TOP)/make.defines
 
 MAJOR_VERSION	:= 2
 MINOR_VERSION	:= 0.0
-EMULATED_LOADER := $(libdir)/spe/emulated-loader.bin
+EMULATED_LOADER := $(spe_ld_dir)/emulated-loader.bin
 
 libspebase_A	:= libspebase.a
 libspebase_SO	:= libspebase.so.${MAJOR_VERSION}.${MINOR_VERSION}

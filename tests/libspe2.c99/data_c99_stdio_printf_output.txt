@@ -1,0 +1,22 @@
+%u
+123456789
+-987654321
+fedcba98
+-123456789
+24680
+-123
+@
+*
+-987654321
+123456789012
+987654321
+210987654321
+-123456789
+09abcdef
+  +1234567
+2.0
+-1.0e+11
+0x1.cp+2
+The_quick_brown_fox_jumps_over_the_lazy_dog.
+The_quick_brown_fox_jumps_over_the_lazy_dog.
+0xfedcba98

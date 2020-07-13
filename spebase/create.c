@@ -271,9 +271,15 @@ spe_context_ptr_t _base_spe_context_create(unsigned int flags,
 		case EEXIST:
 		case EINVAL:
 		case EBUSY:
-		case EPERM:
 		case ENODEV:
 			errno = errno_saved; /* restore errno */
+			break;
+		case EPERM:
+			/* for ISOLATED mode EPERM signals that this mode is not supported */
+			if (flags & SPE_ISOLATE)
+				errno = ENODEV;
+			else
+				errno = errno_saved;
 			break;
 		default:
 			errno = EFAULT;

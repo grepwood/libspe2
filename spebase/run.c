@@ -313,6 +313,8 @@ do_run:
 				stopinfo->stop_reason = SPE_ISOLATION_ERROR;
 				stopinfo->result.spe_isolation_error =
 					stopcode & 0xf;
+				errno = EFAULT;
+				retval = -1;
 			}
 
 		} else if (spe->base_private->flags & SPE_ISOLATE &&

@@ -7,9 +7,6 @@ CFLAGS += -I$(TOP)
 CFLAGS += -I$(TOP)/spebase
 CFLAGS += -D_ATFILE_SOURCE
 
-LDFLAGS := -m32
-LDLIBS := -L$(TOP) -lspe2 -lpthread
-
 MAJOR_VERSION	:= 1
 MINOR_VERSION	:= 2.2
 
@@ -19,13 +16,19 @@ libspe12_SONAME	:= libspe.so.${MAJOR_VERSION}
 
 libspe12_OBJS := spe.o spethreads.o dma.o ps.o ../spebase/*.o
 
-all:  $(libspe12_SO) $(libspe12_A)
+all:  libspe.so $(libspe12_A)
 
 $(libspe12_A): $(libspe12_OBJS)
 	 ar -r $(libspe12_A) $(libspe12_OBJS)
 
 $(libspe12_SO): $(libspe12_OBJS)
 	$(CC) $(CFLAGS) -shared -o $@ $^ -lrt -Wl,--soname=${libspe12_SONAME}
+
+$(libspe12_SONAME): $(libspe12_SO)
+	ln -sf $< $@
+
+libspe.so: $(libspe12_SONAME)
+	ln -sf $< $@
 
 install: spe.h $(libspe12_SO) $(libspe12_A)
 	$(INSTALL_DIR)     $(ROOT)$(libdir)
@@ -39,4 +42,4 @@ install: spe.h $(libspe12_SO) $(libspe12_A)
 
 clean:
 	rm -f $(libspe12_SO) $(libspe12_OBJS) $(libspe12_A) 
-	
+	rm -f libspe.so $(libspe12_SONAME)

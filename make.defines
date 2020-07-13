@@ -17,23 +17,77 @@
 #*   Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #*
 
+# USER CONFIGURATION
 
-X86 = $(shell if ! uname -m | grep ppc ; then echo 1 ; fi)
+# ARCH: target architecture
+#     undefined: compiler's default architecture
+#     ppc:       32-bit PowerPC
+#     ppc64:     64-bit PowerPC
+# Default value:
+#     ARCH =
 
-CROSS_COMPILE = $(shell if ! grep Broadband /proc/cpuinfo ; then echo 1 ; fi)
+# DEBUG: enable debugging
+#     1:         enable
+#     others:    disable
+# Default value:
+#     DEBUG =
 
-ifeq "$(X86)"  "1"
-    CROSS	?= /opt/cell/bin/ppu-
-    EXTRA_CFLAGS = -m32  -mabi=altivec 
+# TEST_STATIC: set static libraries as test targets
+#     1:         test static libraries
+#     others:    test shared libraries
+#
+# Default value:
+#     TEST_STATIC =
+
+# CROSS: prefix of PPU toolchain
+#
+# Default:
+#
+#     (native build)
+#     CROSS =
+#     (cross build)
+#     CROSS = ppu-
+
+# SPU_CROSS: prefix of SPU toolchain
+#
+# Default:
+#     SPU_CROSS = spu-
+
+
+BUILD_ARCH = $(shell uname -m)
+
+ifneq "$(BUILD_ARCH)"  "ppc"
+ifneq "$(BUILD_ARCH)"  "ppc64"
+    CROSS_COMPILE	= 1
+endif
+endif
+
+ifeq "$(CROSS_COMPILE)" "1"
+    CROSS	?= ppu-
     # RPM defined default flags may not work with this cross-compiler
     override OPTFLAGS = 
-endif
-ifeq "$(CROSS_COMPILE)"  "1"
     SYSROOT	?= ../../../sysroot
     prefix	?= /usr
+    RPM_ARCH	?= noarch
 else
-prefix		?= /usr/local
+    prefix	?= /usr/local
+    RPM_ARCH	?= $(ARCH)
 endif
+ifeq "$(RPM_ARCH)" ""
+    RPM_ARCH    = ppc
+endif
+
+ifeq "$(ARCH)" "ppc"
+    ARCH_CFLAGS	= -m32  -mabi=altivec
+else
+ifeq "$(ARCH)" "ppc64"
+    ARCH_CFLAGS	= -m64
+else
+# Use default
+    ARCH_CFLAGS	=
+endif
+endif
+
 
 SPU_CROSS	 = spu-
 
@@ -42,6 +96,7 @@ bindir		 = ${exec_prefix}/bin
 libdir		 = ${exec_prefix}/lib
 includedir	 = ${prefix}/include
 speinclude	 = ${prefix}/spu/include
+spe_ld_dir	 = ${libdir}/spe/
 adabindingdir   = ${prefix}/adainclude
 
 DESTDIR		:=
@@ -63,6 +118,7 @@ libspe2_SONAME	:= libspe2.so.${MAJOR_VERSION}
 
 
 CC		:= ${CROSS}gcc
+EMBEDSPU	:= $(CROSS)embedspu
 CTAGS		:= ctags
 
 CFLAGS := -O2 -Wall -I. -fPIC -I$(TOP)/include -fexceptions -std=gnu99 \
@@ -71,12 +127,15 @@ CFLAGS := -O2 -Wall -I. -fPIC -I$(TOP)/include -fexceptions -std=gnu99 \
 			-Wmissing-prototypes -Wmissing-declarations \
 			-Wmissing-noreturn -Wredundant-decls \
 			-Wnested-externs -Winline -Wformat \
-			${EXTRA_CFLAGS} ${OPTFLAGS}
+			${ARCH_CFLAGS} ${EXTRA_CFLAGS} ${OPTFLAGS}
+
+ifeq "$(TEST_STATIC)" "1"
+     TEST_LDFLAGS	+= -static
+endif
+
 
 SPU_CC		 = $(SPU_CROSS)gcc
 SPU_CFLAGS	 =
-
-#DEBUG=1
 
 ifdef DEBUG
 CFLAGS += -DDEBUG -g

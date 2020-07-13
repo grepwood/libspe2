@@ -163,7 +163,7 @@ static void usage()
 	dump_default_fields();
 	printf("\nExamples:\n");
 	printf("  spu-ps\n\n");
-	printf("  spu-ps -f PPU_PID,USER -s USER\n\n");
+	printf("  spu-ps -f PPU_PID,USER_NAME -s USER_NAME\n\n");
 }
 
 int main(int argc, char **argv)

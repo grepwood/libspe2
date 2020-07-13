@@ -1014,8 +1014,6 @@ static int default_posix1_handler_shmdt(char *ls, unsigned long opdata)
  *
  *	int shmctl(int shmid, int cmd, struct shmid_ds *buf);
  *
- * For this interface 'buf' is taken to be an EA pointer rather
- * than an LS offset.
  */
 static int default_posix1_handler_shmctl(char *ls, unsigned long opdata)
 {
@@ -1024,15 +1022,15 @@ static int default_posix1_handler_shmctl(char *ls, unsigned long opdata)
     DECL_RET();
     int shmid;
     int cmd;
-    addr64 buf;
+    void *buf;
     int rc;
 
     DEBUG_PRINTF("%s\n", __func__);
     shmid = arg0->slot[0];
     cmd = arg1->slot[0];
-    buf.by32[0] = arg2->slot[0];
-    buf.by32[1] = arg2->slot[1];
-    rc = shmctl(shmid, cmd, (struct shmid_ds *) ((unsigned long) buf.all64));
+    buf = GET_LS_PTR(arg2->slot[0]);
+
+    rc = shmctl(shmid, cmd, (struct shmid_ds *) buf);
     PUT_LS_RC(rc, 0, 0, errno);
 #else
     DECL_0_ARGS();
