@@ -261,12 +261,24 @@ spe_context_ptr_t _base_spe_context_create(unsigned int flags,
 			S_IRUSR | S_IWUSR | S_IXUSR, aff_spe_fd);
 
 	if (priv->fd_spe_dir < 0) {
+		int errno_saved = errno; /* save errno to prevent being overwritten */
 		DEBUG_PRINTF("ERROR: Could not create SPE %s\n", pathname);
 		perror("spu_create()");
 		free_spe_context(spe);
-		/* we mask most errors, but leave ENODEV */
-		if (errno != ENODEV)
+		/* we mask most errors, but leave ENODEV, etc */
+		switch (errno_saved) {
+		case ENOTSUP:
+		case EEXIST:
+		case EINVAL:
+		case EBUSY:
+		case EPERM:
+		case ENODEV:
+			errno = errno_saved; /* restore errno */
+			break;
+		default:
 			errno = EFAULT;
+			break;
+		}
 		return NULL;
 	}
 

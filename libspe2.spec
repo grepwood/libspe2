@@ -1,7 +1,7 @@
 %define release %{_version}
 %define build_all 1
 Name: libspe2
-Version: 2.2.0
+Version: 2.2.80
 Release: %{release}
 License: LGPL
 Group: System Environment/Base

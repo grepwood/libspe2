@@ -1,0 +1,25 @@
+2007-07-11 Andre Detsch <adetsch@br.ibm.com>
+
+	* ctx-info.c: do not adding loaded time to ctx total time field.
+
+2007-06-26 Andre Detsch <adetsch@br.ibm.com>
+
+	* proc-info.c: giving %SPU field one more screen column.
+	* spu-ps.c, ctx-info.c: disabling %SPU field on spu-ps.
+	
+2007-06-14 Andre Detsch <adetsch@br.ibm.com>
+
+	* ctx-info.c, spu-info.c: added missing word in CTX_PPE_LIBRARY and
+	SPU_PPE_LIBRARY fields textual description.
+	* spu-ps.c: fix on --fields= option handling.
+	* spu-top.c: fixed handling of 'D'/'A' keys (change sort order to 
+	descending/ascending).
+        * proc-info.c: removed potential memory leak.
+	* spu-top.c: do not printing garbage when all fields are hidden.
+	
+2007-06-05  Markus Deuling  <deuling@de.ibm.com>
+
+	* spu-info.c (spu_update): Remove error msg after fopen.
+	* ChangeLog: New file.
+	* Makefile: Use ./spu-top instead of spu-top for help2man to prevent
+	conflicts with installed versions of spu-{top,ps}.

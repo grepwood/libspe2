@@ -211,7 +211,7 @@ enum ps_area { SPE_MSSYNC_AREA, SPE_MFC_COMMAND_AREA, SPE_CONTROL_AREA, SPE_SIG_
 /* #define SPE_SPE_ERROR                   0x0010 */
 #define SPE_DMA_SEGMENTATION            0x0020
 #define SPE_DMA_STORAGE                 0x0040
-/* #define SPE_INVALID_DMA                 0x0800 */
+#define SPE_INVALID_DMA                 0x0800
 
 /**
  * SIGSPE maps to SIGURG 
