@@ -1,7 +1,7 @@
 Summary: user space tools for Cell/B.E.
 Name: spu-tools
 Version: 1.1
-Release: 3
+Release: 5
 License: GPL
 Group: Applications/System
 Source0: spu-tools.tar.bz2
@@ -42,6 +42,12 @@ rm -rf $RPM_BUILD_ROOT
 %dir /%{_prefix}/share/man/man1/spu-ps.1.gz
 
 %changelog
+* Fri Jul 04 2008  Andre Detsch <adetsch@br.ibm.com> 1.1-5
+- Support for spu threads with arbitrary spufs entry names.
+
+* Wed May 28 2008  Andre Detsch <adetsch@br.ibm.com> 1.1-4
+- Added TID field to SPU view of spu-top.
+
 * Fri Apr 11 2008  Andre Detsch <adetsch@br.ibm.com> 1.1-3
 - Fix escape sequences handling on spu-top.
 - Fixed help example for spu-ps.

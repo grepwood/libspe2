@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include "speevent.h"
 
+#include <string.h>
 #include <errno.h>
 #include <unistd.h>
 #include <sys/epoll.h>
@@ -56,6 +57,75 @@ void _event_spe_context_unlock(spe_context_ptr_t spe)
   pthread_mutex_unlock(&__SPE_EVENT_CONTEXT_PRIV_GET(spe)->lock);
 }
 
+static void stop_event_lock(spe_context_event_priv_ptr_t evctx)
+{
+  pthread_mutex_lock(&evctx->stop_event_lock);
+}
+
+static void stop_event_unlock(spe_context_event_priv_ptr_t evctx)
+{
+  pthread_mutex_unlock(&evctx->stop_event_lock);
+}
+
+static int stop_event_pipe_close(spe_context_event_priv_ptr_t evctx)
+{
+  if (evctx->stop_event_pipe[0] != -1) {
+    close(evctx->stop_event_pipe[0]);
+    evctx->stop_event_pipe[0] = -1;
+  }
+  if (evctx->stop_event_pipe[1] != -1) {
+    close(evctx->stop_event_pipe[1]);
+    evctx->stop_event_pipe[1] = -1;
+  }
+
+  return 0;
+}
+
+static int stop_event_pipe_open(spe_context_event_priv_ptr_t evctx)
+{
+  int rc;
+
+  rc = pipe(evctx->stop_event_pipe);
+  if (rc == -1) {
+    return -1;
+  }
+  rc = fcntl(evctx->stop_event_pipe[0], F_GETFL);
+  if (rc != -1) {
+    rc = fcntl(evctx->stop_event_pipe[0], F_SETFL, rc | O_NONBLOCK);
+  }
+  if (rc == -1) {
+    stop_event_pipe_close(evctx);
+    return -1;
+  }
+
+  return 0;
+}
+
+static int stop_event_pipe_acquire(spe_context_event_priv_ptr_t evctx)
+{
+  if (evctx->stop_event_handler_count == 0) {
+    if (stop_event_pipe_open(evctx) == -1) {
+      return -1;
+    }
+    evctx->stop_event_buffer_count = 0; /* invalidate the buffer */
+  }
+
+  evctx->stop_event_handler_count++;
+
+  return 0;
+}
+
+static int stop_event_pipe_release(spe_context_event_priv_ptr_t evctx)
+{
+  evctx->stop_event_handler_count--;
+
+  if (evctx->stop_event_handler_count == 0) {
+    stop_event_pipe_close(evctx);
+  }
+
+  return 0;
+}
+
 int _event_spe_stop_info_read (spe_context_ptr_t spe, spe_stop_info_t *stopinfo)
 {
   spe_context_event_priv_ptr_t evctx;
@@ -64,13 +134,32 @@ int _event_spe_stop_info_read (spe_context_ptr_t spe, spe_stop_info_t *stopinfo)
   size_t total;
   
   evctx = __SPE_EVENT_CONTEXT_PRIV_GET(spe);
+
+  stop_event_lock(evctx); /* for atomic read */
+
   fd = evctx->stop_event_pipe[0];
 
-  pthread_mutex_lock(&evctx->stop_event_read_lock); /* for atomic read */
+  if (fd == -1) { /* no stop event handler */
+    if (evctx->stop_event_buffer_count) {
+      /* return the last stop info for backward compatibility */
+      memcpy(stopinfo, &evctx->stop_event_buffer, sizeof(*stopinfo));
+      evctx->stop_event_buffer_count--;
+      rc = 0;
+    }
+    else {
+      /* there is no valid stop info in the buffer */
+      errno = EAGAIN;
+      rc = -1;
+    }
+    stop_event_unlock(evctx);
+    return rc;
+  }
+
+  /* any stop event handler. */
 
   rc = read(fd, stopinfo, sizeof(*stopinfo));
   if (rc == -1) {
-    pthread_mutex_unlock(&evctx->stop_event_read_lock);
+    stop_event_unlock(evctx);
     return -1;
   }
 
@@ -98,7 +187,7 @@ int _event_spe_stop_info_read (spe_context_ptr_t spe, spe_stop_info_t *stopinfo)
     }
   }
 
-  pthread_mutex_unlock(&evctx->stop_event_read_lock);
+  stop_event_unlock(evctx);
 
   return rc == -1 ? -1 : 0;
 }
@@ -248,6 +337,15 @@ int _event_spe_event_handler_register(spe_event_handler_ptr_t evhandler, spe_eve
   }
 
   if (event->events & SPE_EVENT_SPE_STOPPED) {
+    /* prevent reading stop info while registering */
+    stop_event_lock(evctx);
+
+    if (stop_event_pipe_acquire(evctx) == -1) {
+      stop_event_unlock(evctx);
+      _event_spe_context_unlock(event->spe);
+      return -1;
+    }
+
     fd = evctx->stop_event_pipe[0];
     
     ev_buf = &evctx->events[__SPE_EVENT_SPE_STOPPED];
@@ -257,9 +355,13 @@ int _event_spe_event_handler_register(spe_event_handler_ptr_t evhandler, spe_eve
     ep_event.events = EPOLLIN;
     ep_event.data.ptr = ev_buf;
     if (epoll_ctl(epfd, ep_op, fd, &ep_event) == -1) {
+      stop_event_pipe_release(evctx);
+      stop_event_unlock(evctx);
       _event_spe_context_unlock(event->spe);
       return -1;
     }
+
+    stop_event_unlock(evctx);
   }
 
   _event_spe_context_unlock(event->spe);
@@ -340,12 +442,20 @@ int _event_spe_event_handler_deregister(spe_event_handler_ptr_t evhandler, spe_e
   }
   
   if (event->events & SPE_EVENT_SPE_STOPPED) {
+    /* prevent reading stop info while unregistering */
+    stop_event_lock(evctx);
+
     fd = evctx->stop_event_pipe[0];
     if (epoll_ctl(epfd, ep_op, fd, NULL) == -1) {
+      stop_event_unlock(evctx);
       _event_spe_context_unlock(event->spe);
       return -1;
     }
     evctx->events[__SPE_EVENT_SPE_STOPPED].events = 0;
+
+    stop_event_pipe_release(evctx);
+
+    stop_event_unlock(evctx);
   }
 
   _event_spe_context_unlock(event->spe);
@@ -424,12 +534,11 @@ int _event_spe_context_finalize(spe_context_ptr_t spe)
 
   evctx = __SPE_EVENT_CONTEXT_PRIV_GET(spe);
   __SPE_EVENT_CONTEXT_PRIV_SET(spe, NULL);
-  
-  close(evctx->stop_event_pipe[0]);
-  close(evctx->stop_event_pipe[1]);
+
+  stop_event_pipe_close(evctx);
 
   pthread_mutex_destroy(&evctx->lock);
-  pthread_mutex_destroy(&evctx->stop_event_read_lock);
+  pthread_mutex_destroy(&evctx->stop_event_lock);
 
   free(evctx);
 
@@ -439,7 +548,6 @@ int _event_spe_context_finalize(spe_context_ptr_t spe)
 struct spe_context_event_priv * _event_spe_context_initialize(spe_context_ptr_t spe)
 {
   spe_context_event_priv_ptr_t evctx;
-  int rc;
   int i;
 
   evctx = calloc(1, sizeof(*evctx));
@@ -447,29 +555,16 @@ struct spe_context_event_priv * _event_spe_context_initialize(spe_context_ptr_t 
     return NULL;
   }
 
-  rc = pipe(evctx->stop_event_pipe);
-  if (rc == -1) {
-    free(evctx);
-    return NULL;
-  }
-  rc = fcntl(evctx->stop_event_pipe[0], F_GETFL);
-  if (rc != -1) {
-    rc = fcntl(evctx->stop_event_pipe[0], F_SETFL, rc | O_NONBLOCK);
-  }
-  if (rc == -1) {
-    close(evctx->stop_event_pipe[0]);
-    close(evctx->stop_event_pipe[1]);
-    free(evctx);
-    errno = EIO;
-    return NULL;
-  }
+  /* the pipe will be created when any stop event handler is registered */
+  evctx->stop_event_pipe[0] = -1;
+  evctx->stop_event_pipe[1] = -1;
 
   for (i = 0; i < sizeof(evctx->events) / sizeof(evctx->events[0]); i++) {
     evctx->events[i].spe = spe;
   }
 
   pthread_mutex_init(&evctx->lock, NULL);
-  pthread_mutex_init(&evctx->stop_event_read_lock, NULL);
+  pthread_mutex_init(&evctx->stop_event_lock, NULL);
 
   return evctx;
 }
@@ -479,16 +574,43 @@ int _event_spe_context_run	(spe_context_ptr_t spe, unsigned int *entry, unsigned
   spe_context_event_priv_ptr_t evctx;
   spe_stop_info_t stopinfo_buf;
   int rc;
+  int errno_saved;
+  int fd;
 
   if (!stopinfo) {
     stopinfo = &stopinfo_buf;
   }
   rc = _base_spe_context_run(spe, entry, runflags, argp, envp, stopinfo);
+  errno_saved = errno;
 
   evctx = __SPE_EVENT_CONTEXT_PRIV_GET(spe);
-  if (write(evctx->stop_event_pipe[1], stopinfo, sizeof(*stopinfo)) != sizeof(*stopinfo)) {
+
+  stop_event_lock(evctx);
+
+  fd = evctx->stop_event_pipe[1];
+  /* don't write stop info to the pipe if no stop event handler is registered */
+  if (fd == -1) {
+    /* store the last stop info in the internal buffer for backward
+     * compatibility */
+    memcpy(&evctx->stop_event_buffer, stopinfo, sizeof(*stopinfo));
+    evctx->stop_event_buffer_count = 1; /* overwrite the buffer */
+    stop_event_unlock(evctx);
+    return rc;
+  }
+
+  stop_event_pipe_acquire(evctx); /* to avoid closing the pipe after unlocked */
+  stop_event_unlock(evctx); /* unlock here to avoid deadlocks */
+
+  if (write(fd, stopinfo, sizeof(*stopinfo)) != sizeof(*stopinfo)) {
     /* error check. */
   }
+
+  /* release the pipe */
+  stop_event_lock(evctx);
+  stop_event_pipe_release(evctx);
+  stop_event_unlock(evctx);
+
+  errno = errno_saved;
 
   return rc;
 }

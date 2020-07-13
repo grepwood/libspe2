@@ -105,6 +105,9 @@ static int spus_compare(const void *v1, const void *v2)
 		case SPU_PPE_LIBRARY:
 			ret = p1->ppe_library - p2->ppe_library; break;
 
+		case SPU_CTX_THREAD_ID:
+			ret = p1->ctx_thread_id - p2->ctx_thread_id; break;
+
 		default :
 			ret = 0; break;
 	}
@@ -218,6 +221,8 @@ struct field spu_fields[] = {
 	{ SPU_CLASS2_INTERRUPTS,        "IRQ2",    "%6s", "%6llu", "Number of Class2 Interrupts Received",     1, "" },
 	{ SPU_PPE_LIBRARY,              "PPE_LIB", "%8s", "%8llu", "Number of PPE Assisted Library Calls Performed", 1, "" },
 
+	{ SPU_CTX_THREAD_ID,            "TID",     "%6s", "%6d",   "SPE Controlling Thread ID",                0, "" },
+
 	{ 0,            NULL,    NULL,      NULL,    NULL,                        0 }
 };
 
@@ -253,9 +258,33 @@ int print_spu_field(struct spu *spu, char *buf, enum spu_field_id field, const c
 			return sprintf(buf, format, spu->class2_interrupts);
 		case SPU_PPE_LIBRARY:
 			return sprintf(buf, format, spu->ppe_library);
+
+		case SPU_CTX_THREAD_ID:
+			return sprintf(buf, format, spu->ctx_thread_id);
+
 		default:
 			return 0;
 	}
 }
 
 
+void fill_spus_tids(struct spu** spus, struct ctx** ctxs)
+{
+	int i, j;
+
+	for (j = 0; spus[j]; j++)
+		spus[j]->ctx_thread_id = 0;
+
+	for (i = 0; ctxs[i]; i++) {
+		int spe = ctxs[i]->spe;
+		if (spe < 0)
+			continue;
+
+		for (j = 0; spus[j]; j++) {
+			if (spus[j]->number == spe) {
+				spus[j]->ctx_thread_id = ctxs[i]->thread_id;
+				break;
+			}
+		}
+	}
+}

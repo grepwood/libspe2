@@ -1,3 +1,9 @@
+2008-07-04 Andre Detsch <adetsch@br.ibm.com>
+	* ctx-info.c: Support for spu threads with arbitrary spufs entry names.
+
+2008-05-28 Andre Detsch <adetsch@br.ibm.com>
+	* spu-top: Added TID field to SPU view.
+
 2008-04-11 Andre Detsch <adetsch@br.ibm.com>
 
 	* spu-top.c: Fix escape sequences handling.

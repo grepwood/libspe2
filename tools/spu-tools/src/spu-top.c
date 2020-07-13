@@ -443,6 +443,7 @@ int main(int argc, char **argv)
 			spus = get_spus();
 			ctxs = get_spu_contexts(period);
 			procs = get_procs(ctxs);
+			fill_spus_tids(spus, ctxs);
 			last_time = current_time;
 		}
 

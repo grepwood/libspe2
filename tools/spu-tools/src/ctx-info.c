@@ -279,39 +279,70 @@ static int ctxs_ensure_capacity(int n)
 }
 
 
-static struct ctx *ctxs_get_ctx(int pid, int cid)
+static struct ctx *ctxs_get_ctx(int thread_id)
 {
 	int i;
 
 	/* This could be optimized by using a hash table */
 	for (i = 0; i < ctxs_n; i++) {
-		if (ctxs[i]->ppu_pid == pid &&
-				cid == ctxs[i]->context_id)
+		if (ctxs[i]->thread_id == thread_id)
 			return ctxs[i];
 	}
 	return NULL;
 }
 
+static int find_thread_pid(int thread_id)
+{
+	DIR* proc_dir;
+	struct dirent *entry;
+	static char buf[PATH_MAX];
+	int pid = -1;
+
+	proc_dir = opendir(PROCFS_PATH);
+	if (proc_dir) {
+		while ((entry = readdir(proc_dir)) != NULL) {
+			sprintf(buf, "%s/%s/task/%d", PROCFS_PATH, entry->d_name, thread_id);
+			if (access(buf, F_OK) == 0) {
+				sscanf(entry->d_name, "%d", &pid);
+				break;
+			}
+		}
+		closedir(proc_dir);
+	}
+	return pid;
+}
+
 static int
 process_ctx_entry(struct dirent *entry, const char *gang_name, u64 last_period)
 {
-	char buf[PATH_MAX];
+	static char buf[PATH_MAX];
 	FILE *fp;
-	int uid, pid;
-	u64 context_id;
+	int uid, thread_id;
 	struct ctx *ctx;
 
-	sscanf(entry->d_name, "spethread-%d-%llu", &pid, &context_id);
+	if (gang_name)
+		sprintf(buf, "%s/%s/%s", SPUFS_PATH, gang_name, entry->d_name);
+	else
+		sprintf(buf, "%s/%s", SPUFS_PATH, entry->d_name);
+	chdir(buf);
 
-	ctx = ctxs_get_ctx(pid, context_id);
+	fp = fopen("tid", "r");
+	if (fp) {
+		fscanf(fp, "%d", &thread_id);
+		fclose(fp);
+	} else {
+		return 0;
+	}
+
+	ctx = ctxs_get_ctx(thread_id);
 	if (!ctx) {
 		ctxs_ensure_capacity(ctxs_n + 1);
 		ctx = alloc_ctx();
 		ctxs[ctxs_n] = ctx;
 		ctxs_n++;
 
-		ctx->ppu_pid = pid;
-		ctx->context_id = context_id;
+		ctx->thread_id = thread_id;
+		ctx->ppu_pid = find_thread_pid(thread_id);
 	}
 
 	sprintf(buf, "%s/%d/stat", PROCFS_PATH, ctx->ppu_pid);
@@ -338,12 +369,6 @@ process_ctx_entry(struct dirent *entry, const char *gang_name, u64 last_period)
 		fclose(fp);
 	}
 
-	if (gang_name)
-		sprintf(buf, "%s/%s/%s", SPUFS_PATH, gang_name, entry->d_name);
-	else
-		sprintf(buf, "%s/%s", SPUFS_PATH, entry->d_name);
-	chdir(buf);
-
 	if (access("phys-id", R_OK) != 0) {
 		ctx->spe = SPE_UNKNOWN;
 	} else {
@@ -352,14 +377,6 @@ process_ctx_entry(struct dirent *entry, const char *gang_name, u64 last_period)
 			fscanf(fp, "%x", &ctx->spe);
 			fclose(fp);
 		}
-	}
-
-	fp = fopen("tid", "r");
-	if (fp) {
-		fscanf(fp, "%d", &ctx->thread_id);
-		fclose(fp);
-	} else {
-		ctx->thread_id = -1;
 	}
 
 	fp = fopen("stat", "r");
@@ -428,7 +445,7 @@ struct ctx **get_spu_contexts(u64 last_period)
 	struct dirent *entry, *gang_entry;
 	DIR *ctxs_dir, *gang_dir;
 	int i;
-	char buf[PATH_MAX];
+	static char buf[PATH_MAX];
 
 	ctxs_dir = opendir(SPUFS_PATH);
 	if (!ctxs_dir)
@@ -438,15 +455,17 @@ struct ctx **get_spu_contexts(u64 last_period)
 		ctxs[i]->updated = 0;
 
 	while ((entry = readdir(ctxs_dir)) != NULL) {
-		if (!strncmp(entry->d_name, "spethread-", 10)) {
+		sprintf(buf, "%s/%s/stat", SPUFS_PATH, entry->d_name);
+		if (access(buf, F_OK) == 0) {
 			process_ctx_entry(entry, NULL, last_period);
-		} else if (!strncmp(entry->d_name, "gang-", 5)) {
+		} else {
 			/* contexts within a gang */
 			sprintf(buf, "%s/%s", SPUFS_PATH, entry->d_name);
 			gang_dir = opendir(buf);
 			if (gang_dir) {
 				while ((gang_entry = readdir(gang_dir)) != NULL) {
-					if (!strncmp(gang_entry->d_name, "spethread-", 10))
+					sprintf(buf, "%s/%s/%s/stat", SPUFS_PATH, entry->d_name, gang_entry->d_name);
+					if (access(buf, F_OK) == 0)
 						process_ctx_entry(gang_entry, entry->d_name, last_period);
 				}
 				closedir(gang_dir);

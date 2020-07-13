@@ -20,6 +20,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <stdio.h>
+#include <string.h>
 
 
 #include "info.h"
@@ -31,7 +32,7 @@ int _base_spe_count_physical_cpus(int cpu_node)
 {
 	const char    *buff = "/sys/devices/system/cpu";
 	DIR     *dirp;
-	int ret = -2;
+	int ret = 0;
 	struct  dirent  *dptr;
 
 	DEBUG_PRINTF ("spe_count_physical_cpus()\n");
@@ -50,7 +51,8 @@ int _base_spe_count_physical_cpus(int cpu_node)
 		return -1;
 	}
     while((dptr=readdir(dirp))) {
-		ret++;
+		if(strncmp("cpu",dptr->d_name,3) == 0)
+			ret++;
 	}
 	closedir(dirp);
 	return ret/THREADS_PER_BE; 

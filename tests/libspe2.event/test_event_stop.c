@@ -209,6 +209,14 @@ static int test(int argc, char **argv)
   for (i = 0; i < NUM_SPES; i++) {
     pthread_join(params[i].tid, NULL);
 
+    event[0].spe = params[i].spe;
+    event[0].events = SPE_EVENT_SPE_STOPPED;
+    ret = spe_event_handler_deregister(evhandler, event);
+    if (ret == -1) {
+      eprintf("spe_event_handler_deregister: %s\n", strerror(errno));
+      fatal();
+    }
+
     if (params[i].num_stop > COUNT) {
       eprintf("spe[%u]: too many events (%u/%u).\n", i, params[i].num_stop, COUNT);
       failed();

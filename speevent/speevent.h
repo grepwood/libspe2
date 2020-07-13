@@ -35,8 +35,11 @@ enum __spe_event_types {
 typedef struct spe_context_event_priv
 {
   pthread_mutex_t lock;
-  pthread_mutex_t stop_event_read_lock;
+  pthread_mutex_t stop_event_lock;
   int stop_event_pipe[2];
+  int stop_event_handler_count;
+  int stop_event_buffer_count;
+  spe_stop_info_t stop_event_buffer;
   spe_event_unit_t events[__NUM_SPE_EVENT_TYPES];
 } spe_context_event_priv_t, *spe_context_event_priv_ptr_t;
 

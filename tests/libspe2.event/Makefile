@@ -29,7 +29,9 @@ main_progs = \
 	test_event_tag_group.elf \
 	test_event_wbox.elf \
 	test_event.elf \
-	test_event_error.elf
+	test_event_error.elf \
+	test_event_stop_no_read.elf \
+	test_event_stop_no_handler.elf
 
 
 include $(TEST_TOP)/make.rules
@@ -43,6 +45,10 @@ test_event_tag_group.elf: spu_proxy_dma.embed.o
 test_event_wbox.elf: spu_event_wbox.embed.o
 
 test_event.elf: spu_event.embed.o
+
+test_event_stop_no_read.elf: spu_event_stop.embed.o
+
+test_event_stop_no_handler.elf: spu_event_stop.embed.o
 
 spu_ibox.c: ../libspe2.mfc/spu_ibox.c
 	ln -sf $< $@

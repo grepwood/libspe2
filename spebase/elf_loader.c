@@ -219,15 +219,17 @@ apply_relocations(spe_program_handle_t *handle, Elf32_Shdr *rh, Elf32_Shdr *sh)
 	for (; r < r_end; ++r)
 	{
 		if (r->r_info == ELF32_R_INFO(0,R_SPU_PPU32)) {
+			/* v is in ._ea */
 			Elf32_Word *loc = reloc_base + r->r_offset;
-			Elf32_Word v = (Elf32_Word)(long)start + r->r_addend;
+			Elf32_Word v = (unsigned long)start + r->r_addend;
 			/* Don't dirty pages unnecessarily.  */
 			if (*loc != v)
 				*loc = v;
 			DEBUG_PRINTF("PPU32(%p) = %#x\n", loc, v);
 		} else if (r->r_info == ELF32_R_INFO(0,R_SPU_PPU64)) {
+			/* v is in ._ea */
 			Elf64_Xword *loc = reloc_base + r->r_offset;
-			Elf64_Xword v = (Elf64_Xword)(long)start + r->r_addend;
+			Elf64_Xword v = (unsigned long)start + r->r_addend;
 			if (*loc != v)
 				*loc = v;
 			DEBUG_PRINTF("PPU64(%p) = %#llx\n", loc, v);

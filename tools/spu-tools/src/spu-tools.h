@@ -91,7 +91,6 @@ enum ctx_field_id {
 };
 
 struct ctx {
-	u64         context_id;
 	int         ppu_pid;
 	int         thread_id;
 	const char *user;
@@ -148,6 +147,7 @@ enum spu_field_id {
 	SPU_MAJOR_PAGE_FAULTS,
 	SPU_CLASS2_INTERRUPTS,
 	SPU_PPE_LIBRARY,
+	SPU_CTX_THREAD_ID,
 	SPU_MAX_FIELD
 };
 
@@ -169,6 +169,8 @@ struct spu {
 	u64 ppe_library;
 
 	float percent[TIME_MAX];
+
+	int ctx_thread_id;
 };
 
 
@@ -183,6 +185,7 @@ inline enum spu_field_id get_spu_sort_field();
 inline void set_spu_sort_field(enum spu_field_id field);
 void set_spu_sort_descending(int descending);
 
+void fill_spus_tids(struct spu** spus, struct ctx** ctxs);
 
 /*
  * PER_PROC

@@ -197,6 +197,7 @@ rm -rf $RPM_BUILD_ROOT
 %if %{build_common}
 %preun -n elfspe2
 [ -f %{_initdir}/elfspe ] && /sbin/chkconfig --del elfspe
+[ -f %{_bindir}/elfspe-unregister ] && %{_bindir}/elfspe-unregister
 
 %post -n elfspe2
 [ -f %{_initdir}/elfspe ] && /sbin/chkconfig --add elfspe
