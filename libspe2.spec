@@ -1,12 +1,12 @@
 %define release %{_version}
 %define build_all 1
 Name: libspe2
-Version: 2.2.80
+Version: 2.3.0
 Release: %{release}
 License: LGPL
 Group: System Environment/Base
 URL: http://www.bsc.es/projects/deepcomputing/linuxoncell
-Source: http://www.bsc.es/projects/deepcomputing/linuxoncell/development/release2.0/libspe/%{name}-%{version}-%{release}.tar.gz
+Source: http://www.bsc.es/projects/deepcomputing/linuxoncell/development/release2.0/libspe/%{name}-%{version}.%{release}.tar.gz
 Buildroot: %{_tmppath}/libspe
 Exclusivearch: ppc ppc64 noarch
 Summary: SPE Runtime Management Library

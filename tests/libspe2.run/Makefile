@@ -30,6 +30,7 @@ main_progs = \
 	test_run_image.elf \
 	test_stop.elf \
 	test_multiple_context.elf \
+	test_nosched_context.elf \
 	test_single_gang_context.elf \
 	test_context_create_error.elf \
 	test_run_error.elf \
@@ -60,6 +61,8 @@ test_single_context.elf: spu_exit.embed.o spu_arg.embed.o
 test_stop.elf: spu_stop.embed.o
 
 test_multiple_context.elf: spu_arg.embed.o
+
+test_nosched_context.elf: spu_arg.embed.o
 
 test_single_gang_context.elf: spu_arg.embed.o
 

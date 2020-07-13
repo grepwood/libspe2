@@ -103,6 +103,24 @@ int _base_spe_count_physical_spes(int cpu_node)
 	return ret;
 }
 
+/* Since there are no mixed-type CPU systems at this time the cpu node
+ * is currently ignored, and a result is generated that returns the 
+ * feature set of the currently running CPU.
+ */
+int _base_spe_read_cpu_type(int cpu_node)
+{
+	unsigned long pvr;
+	int i=0;
+	
+	asm volatile ("mfpvr    %0" : "=r"(pvr));
+	
+	while (pvr_list_edp[i] != 0) {
+		if (pvr_list_edp[i++] == pvr)
+			return SPE_CPU_IS_CELLEDP;
+	}
+	
+	return SPE_CPU_IS_CELLBE;
+}
 
 int _base_spe_cpu_info_get(int info_requested, int cpu_node) {
 	int ret = 0;
@@ -117,6 +135,9 @@ int _base_spe_cpu_info_get(int info_requested, int cpu_node) {
 		break;
 	case SPE_COUNT_USABLE_SPES:
 		ret = _base_spe_count_usable_spes(cpu_node);
+		break;
+	case SPE_CPU_TYPE:
+		ret = _base_spe_read_cpu_type(cpu_node);
 		break;
 	default:
 		errno = EINVAL;

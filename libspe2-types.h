@@ -262,10 +262,13 @@ enum ps_area { SPE_MSSYNC_AREA, SPE_MFC_COMMAND_AREA, SPE_CONTROL_AREA, SPE_SIG_
 #define SPE_CALLBACK_UPDATE          2
 
 
-
 #define SPE_COUNT_PHYSICAL_CPU_NODES 1
 #define SPE_COUNT_PHYSICAL_SPES      2
 #define SPE_COUNT_USABLE_SPES        3
+#define SPE_CPU_TYPE                 4
+
+#define SPE_CPU_IS_CELLBE            1
+#define SPE_CPU_IS_CELLEDP           2
 
 /**
  * Signal Targets 

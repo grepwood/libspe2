@@ -109,7 +109,7 @@ INSTALL_LINK	:= ln -sf
 INSTALL_DIR	:= ${INSTALL} -d -m 755
 
 MAJOR_VERSION	:= 2
-MINOR_VERSION	:= 2.80
+MINOR_VERSION	:= 3.0
 
 libspe2_A	:= libspe2.a
 libspe2_SO	:= libspe2.so.${MAJOR_VERSION}.${MINOR_VERSION}

@@ -27,5 +27,12 @@
 int _base_spe_count_physical_cpus(int cpu_node);
 int _base_spe_count_physical_spes(int cpu_node);
 int _base_spe_count_usable_spes(int cpu_node);
+int _base_spe_read_cpu_type(int cpu_node);
+
+/* Here is a list of edp capable PVRs
+ * Known non-EDP are: 0x0070 0501 ( PS3, QS20, QS21 )
+ * Known EPD capable: 0x0070 3000 ( QS22 )
+ */
+unsigned long pvr_list_edp[] = {0x00703000, 0};
 
 #endif
